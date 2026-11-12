@@ -240,8 +240,8 @@ fn on_hotkey(app: &AppHandle, id: u32) {
         "capture" => begin_capture_inner(app, false),
         "quick" => quick_add(app),
         "record" => toggle_record(app),
-        "hud" | "pill" => {
-            let _ = app.emit_to("overlay", "overlay-toggle", action.as_str());
+        "hud" | "pill" | "zones" => {
+            let _ = app.emit("overlay-toggle", action.as_str());
             let at = platform::cursor_pos();
             place_overlay(app, at);
         }

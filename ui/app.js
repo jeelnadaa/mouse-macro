@@ -25,6 +25,7 @@ const HOTKEYS = [
   ['start', 'Start or resume', 'F5'], ['pause', 'Pause or resume', 'F6'], ['step', 'Step through', 'F11'],
   ['quick', 'Quick capture, silent', 'F7'], ['capture', 'Capture overlay', 'F8'], ['record', 'Record path', 'Ctrl+Shift+R'],
   ['hud', 'Toggle telemetry', 'F9'], ['pill', 'Toggle status pill', 'F10'],
+  ['zones', 'Toggle zones guide (manual play)', 'F4'],
   ['stop', 'Emergency stop', 'Esc'], ['stop2', 'Emergency stop, second key', 'F12']
 ];
 const CONFLICTS = {
@@ -353,7 +354,7 @@ function renderSeq() {
     ? `<button class="btn mad" data-act="stop" title="Emergency stop the running macro (${k('stop')})">Stop <kbd>${k('stop')}</kbd></button>${RUN.state === 'paused'
       ? `<button class="btn" data-act="step" title="Advance one step only and pause (${k('step')})">Next step <kbd>${k('step')}</kbd></button><button class="btn pri" data-act="resume" title="Resume macro sequence (${k('start')})">Resume <kbd>${k('start')}</kbd></button>`
       : `<button class="btn pri" data-act="pause" title="Pause macro execution (${k('pause')})">Pause <kbd>${k('pause')}</kbd></button>`}`
-    : `<button class="btn" data-act="save" title="${m.file ? 'Save changes to ' + esc(m.file) : 'Save macro to a file (Ctrl+S)'}">Save <kbd>Ctrl+S</kbd></button><button class="btn" data-act="saveas" title="Save a copy of this macro with a new name">Save as</button><button class="btn" data-act="capture" title="Open overlay over target app to draw a zone and add a step (${k('capture')})">Capture step <kbd>${k('capture')}</kbd></button><button class="btn" data-act="dry" title="Simulate this sequence without sending physical clicks">Dry run</button><button class="btn" data-act="stepmode" title="Step through sequence with manual advance (${k('step')})">Step through <kbd>${k('step')}</kbd></button><button class="btn pri" data-act="run" ${other ? 'disabled title="Another macro is running"' : 'title="Run active macro on target window (' + k('start') + ')"'}>Run <kbd>${k('start')}</kbd></button>`;
+    : `<button class="btn" data-act="save" title="${m.file ? 'Save changes to ' + esc(m.file) : 'Save macro to a file (Ctrl+S)'}">Save <kbd>Ctrl+S</kbd></button><button class="btn" data-act="saveas" title="Save a copy of this macro with a new name">Save as</button><button class="btn" data-act="capture" title="Open overlay over target app to draw a zone and add a step (${k('capture')})">Capture step <kbd>${k('capture')}</kbd></button><button class="btn" data-act="guide" title="Toggle full-screen click-through manual guide showing all mapped click zones (${k('zones')})">Zones guide <kbd>${k('zones')}</kbd></button><button class="btn" data-act="dry" title="Simulate this sequence without sending physical clicks">Dry run</button><button class="btn" data-act="stepmode" title="Step through sequence with manual advance (${k('step')})">Step through <kbd>${k('step')}</kbd></button><button class="btn pri" data-act="run" ${other ? 'disabled title="Another macro is running"' : 'title="Run active macro on target window (' + k('start') + ')"'}>Run <kbd>${k('start')}</kbd></button>`;
   renderRunbar();
   renderFacts(m);
   const pass = $('#pass');
@@ -430,16 +431,37 @@ async function refreshWin() {
   catch { winCache = { key: m.target.process, info: null, at: Date.now() }; }
   if (view === 'seq') renderFacts(m);
 }
+function syncZones() {
+  const m = cur();
+  if (!m) return;
+  T.event.emit('zones-data', {
+    macro_id: m.id,
+    macro_name: m.name,
+    target: m.target,
+    authored: m.authored,
+    steps: m.steps.map((s, i) => ({
+      idx: i + 1,
+      id: s.id,
+      name: s.name,
+      enabled: s.enabled,
+      action: s.action,
+      zone: s.zone,
+      delay: s.delay
+    }))
+  });
+}
 function syncTarget() {
   const m = cur(); if (!m) return;
   invoke('set_active_target', { process: m.target.process || '', title: m.target.title || '' }).catch(() => {});
   refreshWin();
+  syncZones();
 }
 
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]');
   if (!b || b.disabled) return;
   const a = b.dataset.act;
+  if (a === 'guide') { syncZones(); T.event.emit('overlay-toggle-req', 'zones'); }
   if (a === 'run') runMacro();
   if (a === 'dry') runMacro({ dry: true });
   if (a === 'stepmode') runMacro({ stepMode: true });
@@ -1197,7 +1219,7 @@ function renderApp() {
   $('#app-body').innerHTML = `<div class="panel"><h2 class="section-title">Overlay</h2>
       <p class="sub" style="margin-bottom:14px">The overlay floats above games running in borderless or windowed fullscreen. Exclusive fullscreen hides every overlay, so switch the game to borderless if you cannot see it.</p>
       <label class="check" title="Display floating HUD status pill during macro playback"><input type="checkbox" id="a-pill" ${pillOn() ? 'checked' : ''}> Show the status pill while a macro runs <kbd>${esc(PREFS.hotkeys.pill || '')}</kbd></label>
-      <div class="row start" style="margin-top:12px"><button class="btn" id="a-hud" title="Immediately show or hide the floating telemetry HUD">Toggle telemetry now <kbd>${esc(PREFS.hotkeys.hud || '')}</kbd></button></div></div>
+      <div class="row start" style="margin-top:12px"><button class="btn" id="a-hud" title="Immediately show or hide the floating telemetry HUD">Toggle telemetry now <kbd>${esc(PREFS.hotkeys.hud || '')}</kbd></button><button class="btn" id="a-zones" title="Immediately show or hide the click-through zones guide for manual play">Toggle zones guide now <kbd>${esc(PREFS.hotkeys.zones || 'F4')}</kbd></button></div></div>
     <div class="panel"><h2 class="section-title">Sound</h2>
       <label class="check" style="margin-bottom:12px" title="Silence all audio cues and tones"><input type="checkbox" id="a-mute" ${PREFS.muted ? 'checked' : ''}> Mute audio cues</label>
       <div class="field"><label for="a-vol">Volume <span class="m" id="a-volv">${Math.round(PREFS.volume * 100)}%</span></label><input type="range" id="a-vol" min="0" max="1" step="0.05" value="${PREFS.volume}" title="Adjust volume for audio feedback cues"></div>
@@ -1221,6 +1243,7 @@ $('#app-body').addEventListener('change', e => {
 $('#app-body').addEventListener('click', async e => {
   const id = e.target.closest('button')?.id;
   if (id === 'a-hud') T.event.emit('overlay-toggle-req', 'hud');
+  if (id === 'a-zones') { syncZones(); T.event.emit('overlay-toggle-req', 'zones'); }
   if (id === 'a-check') {
     $('#a-updtxt').textContent = 'Checking GitHub releases…';
     try {
@@ -1400,6 +1423,10 @@ listen('update-available', ({ payload }) => setUpdate(payload));
 listen('update-progress', ({ payload }) => {
   const pct = payload.total ? Math.round(payload.got / payload.total * 100) : null;
   $('#updbtn').textContent = pct != null ? `Downloading ${pct}%` : 'Downloading';
+});
+listen('zones-request', () => syncZones());
+listen('overlay-toggle', ({ payload }) => {
+  if (payload === 'zones') syncZones();
 });
 setInterval(() => {
   if (RUN.state !== 'idle' && $('#elapsed')) $('#elapsed').textContent = clock(Date.now() - RUN.started);

@@ -10,7 +10,8 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const clock = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return [s / 3600 | 0, (s / 60 | 0) % 60, s % 60].map(n => String(n).padStart(2, '0')).join(':'); };
 
 let G = { ox: 0, oy: 0, k: 1 };
-let HUD = false, PILL = true;
+let HUD = false, PILL = true, ZONES = false;
+let ZONES_DATA = null, targetWin = null;
 try { PILL = localStorage.getItem('aether.pill') !== '0'; } catch { /* default */ }
 let RUN = { state: 'idle' };
 let REC = { on: false, started: 0 };
@@ -25,11 +26,12 @@ const toCss = (x, y) => [(x - G.ox) / G.k, (y - G.oy) / G.k];
 function sync() {
   const now = Date.now();
   const ghost = (RUN.dry && RUN.state !== 'idle' && ghostUntil > 0) || ghostUntil > now;
-  const visible = !!(CAP || HUD || REC.on || (PILL && RUN.state !== 'idle') || ghost || toastUntil > now);
+  const visible = !!(CAP || HUD || ZONES || REC.on || (PILL && RUN.state !== 'idle') || ghost || toastUntil > now);
   const interactive = !!CAP;
   $('#hud').classList.toggle('on', HUD && !CAP);
   $('#pill').classList.toggle('on', !CAP && (REC.on || (PILL && RUN.state !== 'idle')));
   $('#ghost').classList.toggle('on', ghost && !CAP);
+  $('#zones').classList.toggle('on', ZONES && !CAP);
   if (visible !== shown.visible || interactive !== shown.interactive) {
     shown = { visible, interactive };
     invoke('overlay_mode', { visible, interactive }).catch(() => {});
@@ -110,8 +112,12 @@ setInterval(() => {
 }, 100);
 
 async function loadKeys() {
-  try { const p = await invoke('load_prefs'); KEYS = Object.assign({ start: 'F5', pause: 'F6', step: 'F11', stop: 'Esc', record: 'Ctrl+Shift+R', hud: 'F9', pill: 'F10' }, p?.hotkeys || {}); $('#hudkey').textContent = KEYS.hud || ''; }
-  catch { /* defaults */ }
+  try {
+    const p = await invoke('load_prefs');
+    KEYS = Object.assign({ start: 'F5', pause: 'F6', step: 'F11', stop: 'Esc', record: 'Ctrl+Shift+R', hud: 'F9', pill: 'F10', zones: 'F4' }, p?.hotkeys || {});
+    $('#hudkey').textContent = KEYS.hud || '';
+    if ($('#z-key')) $('#z-key').textContent = KEYS.zones || 'F4';
+  } catch { /* defaults */ }
 }
 
 /* ---------------------------------------------------------------- capture */
@@ -277,16 +283,207 @@ addEventListener('keydown', e => {
   if (e.key.toLowerCase() === 't') testHits();
 });
 
+/* ---------------------------------------------------------------- zones guide */
+async function refreshZonesWin() {
+  if (!ZONES_DATA) return;
+  try {
+    const t = ZONES_DATA.target || {};
+    targetWin = await invoke('target_info', { process: t.process || '', title: t.title || '' });
+  } catch { targetWin = null; }
+}
+
+async function toggleZones() {
+  ZONES = !ZONES;
+  if (ZONES) {
+    await loadKeys();
+    try { const g = await invoke('overlay_geom'); if (g?.k) G = g; } catch {}
+    T.event.emit('zones-request');
+    await refreshZonesWin();
+    renderZones();
+    const count = ZONES_DATA?.steps?.filter(s => s.enabled && s.zone)?.length || 0;
+    toast(`Zones guide: on (${count} ${count === 1 ? 'area' : 'areas'})`);
+  } else {
+    toast('Zones guide: off');
+  }
+  sync();
+}
+
+function renderZones() {
+  if (!ZONES || !ZONES_DATA) {
+    $('#z-shapes').innerHTML = '';
+    $('#z-paths').innerHTML = '';
+    $('#z-labels').innerHTML = '';
+    $('#z-winr').setAttribute('width', '0');
+    $('#z-winl').textContent = '';
+    return;
+  }
+
+  $('#z-mname').textContent = ZONES_DATA.macro_name || 'Active macro';
+  if ($('#z-key')) $('#z-key').textContent = KEYS.zones || 'F4';
+
+  const target = ZONES_DATA.target || {};
+  const authored = ZONES_DATA.authored;
+  const onResize = target.on_resize || 'scale';
+
+  const w = targetWin || { x: G.ox, y: G.oy, w: innerWidth * G.k, h: innerHeight * G.k, process: target.process || 'Whole screen' };
+  const [wx, wy] = toCss(w.x, w.y);
+  const ww = w.w / G.k, wh = w.h / G.k;
+
+  if (target.process) {
+    $('#z-winr').setAttribute('x', wx);
+    $('#z-winr').setAttribute('y', wy);
+    $('#z-winr').setAttribute('width', ww);
+    $('#z-winr').setAttribute('height', wh);
+    $('#z-winl').setAttribute('x', wx + 8);
+    $('#z-winl').setAttribute('y', Math.max(14, wy + 18));
+    $('#z-winl').textContent = `${target.process}  ${w.w}×${w.h}`;
+  } else {
+    $('#z-winr').setAttribute('width', '0');
+    $('#z-winl').textContent = '';
+  }
+
+  const aw = authored?.w > 0 ? authored.w : w.w;
+  const ah = authored?.h > 0 ? authored.h : w.h;
+
+  function mapPt(x, y) {
+    let px = x, py = y;
+    if (onResize === 'center') {
+      px = x + (w.w - aw) / 2;
+      py = y + (w.h - ah) / 2;
+    } else if (onResize === 'top_left') {
+      px = x;
+      py = y;
+    } else {
+      if (aw > 0 && ah > 0) {
+        px = (x * w.w) / aw;
+        py = (y * w.h) / ah;
+      }
+    }
+    return toCss(w.x + px, w.y + py);
+  }
+
+  const enabledSteps = (ZONES_DATA.steps || []).filter(s => s.enabled && s.zone);
+  $('#z-count').textContent = `${enabledSteps.length} ${enabledSteps.length === 1 ? 'area' : 'areas'}`;
+
+  let shapesHtml = '';
+  let pathsHtml = '';
+  let labelsHtml = '';
+  const centers = [];
+
+  enabledSteps.forEach((s, idx) => {
+    const z = s.zone;
+    const shapeKind = z.shape || 'point';
+    const c = COLOR[shapeKind] || '#d97757';
+    const stepNum = s.idx || (idx + 1);
+
+    let center = [0, 0];
+    let shapeSvg = '';
+
+    if (shapeKind === 'rect') {
+      const [x1, y1] = mapPt(z.x, z.y);
+      const scaleX = (w.w / aw) / G.k;
+      const scaleY = (w.h / ah) / G.k;
+      const sw = Math.max(4, z.w * scaleX);
+      const sh = Math.max(4, z.h * scaleY);
+      center = [x1 + sw / 2, y1 + sh / 2];
+      shapeSvg = `<g>
+        <rect x="${x1}" y="${y1}" width="${sw}" height="${sh}" rx="4" fill="${c}" fill-opacity="0.14" stroke="${c}" stroke-width="1.8" stroke-dasharray="6 4"/>
+        <rect x="${x1}" y="${y1}" width="${sw}" height="${sh}" rx="4" fill="none" stroke="${c}" stroke-width="0.8" opacity="0.3"/>
+        <circle cx="${center[0]}" cy="${center[1]}" r="2.2" fill="${c}" opacity="0.9"/>
+      </g>`;
+    } else if (shapeKind === 'circle') {
+      const [cx, cy] = mapPt(z.x, z.y);
+      const scale = (((w.w / aw) + (w.h / ah)) / 2) / G.k;
+      const sr = Math.max(3, z.r * scale);
+      center = [cx, cy];
+      shapeSvg = `<g>
+        <circle cx="${cx}" cy="${cy}" r="${sr}" fill="${c}" fill-opacity="0.14" stroke="${c}" stroke-width="1.8" stroke-dasharray="6 4"/>
+        <circle cx="${cx}" cy="${cy}" r="2.5" fill="${c}" opacity="0.9"/>
+      </g>`;
+    } else if (shapeKind === 'poly') {
+      const pts = (z.points || []).map(p => mapPt(p[0], p[1]));
+      if (pts.length) {
+        const avgX = pts.reduce((a, p) => a + p[0], 0) / pts.length;
+        const avgY = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+        center = [avgX, avgY];
+        const ptsStr = pts.map(p => p.join(',')).join(' ');
+        shapeSvg = `<g>
+          <polygon points="${ptsStr}" fill="${c}" fill-opacity="0.14" stroke="${c}" stroke-width="1.8" stroke-dasharray="6 4"/>
+          ${pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="${c}"/>`).join('')}
+          <circle cx="${center[0]}" cy="${center[1]}" r="2.5" fill="${c}" opacity="0.9"/>
+        </g>`;
+      }
+    } else {
+      const [px, py] = mapPt(z.x, z.y);
+      center = [px, py];
+      shapeSvg = `<g>
+        <circle cx="${px}" cy="${py}" r="9" fill="none" stroke="${c}" stroke-width="1.2" stroke-dasharray="3 3"/>
+        <path d="M${px - 14} ${py}h28M${px} ${py - 14}v28" stroke="${c}" stroke-width="1.8"/>
+        <circle cx="${px}" cy="${py}" r="2.5" fill="var(--bone)"/>
+      </g>`;
+    }
+
+    shapesHtml += shapeSvg;
+    centers.push(center);
+
+    const actionKind = s.action?.kind || 'click';
+    const actName = actionKind === 'click' ? (s.action?.count === 2 ? 'Double click' : `${s.action?.button || 'Left'} click`)
+      : actionKind === 'hold' ? 'Hold'
+      : actionKind === 'drag' ? 'Drag'
+      : actionKind === 'key' ? `Key ${s.action?.key || ''}`
+      : actionKind === 'text' ? 'Type'
+      : actionKind;
+    const delayMs = Math.round(s.delay?.mean || 0);
+
+    const bx = Math.round(center[0] + 12);
+    const by = Math.round(center[1] - 22);
+
+    const nameText = esc(s.name || `Step ${stepNum}`);
+    const actText = esc(actName);
+    const delayText = delayMs > 0 ? `· ⏱ ${delayMs}ms` : '';
+    const approxW = Math.max(90, Math.min(220, (nameText.length * 7) + 36));
+
+    labelsHtml += `<g class="z-badge" transform="translate(${bx}, ${by})">
+      <rect x="0" y="0" width="${approxW}" height="24" rx="6" fill="#0e0d0ce8" stroke="var(--line2)" stroke-width="1"/>
+      <circle cx="12" cy="12" r="7.5" fill="${c}"/>
+      <text x="12" y="12" fill="#0e0d0c" font-size="10" font-weight="700" text-anchor="middle" dominant-baseline="central">${stepNum}</text>
+      <text x="25" y="10" fill="var(--bone)" font-size="11" font-weight="500">${nameText.slice(0, 18)}</text>
+      <text x="25" y="20" fill="var(--fog)" font-size="9" font-family="var(--m)">${actText} ${delayText}</text>
+    </g>`;
+  });
+
+  for (let i = 0; i < centers.length - 1; i++) {
+    const p1 = centers[i], p2 = centers[i + 1];
+    pathsHtml += `<line x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}" stroke="var(--dim)" stroke-opacity="0.35" stroke-width="1.4" stroke-dasharray="4 4" marker-end="url(#z-arrow)"/>`;
+  }
+
+  $('#z-shapes').innerHTML = shapesHtml;
+  $('#z-paths').innerHTML = pathsHtml;
+  $('#z-labels').innerHTML = labelsHtml;
+}
+
+setInterval(async () => {
+  if (!ZONES || CAP) return;
+  await refreshZonesWin();
+  renderZones();
+}, 1000);
+
 /* ---------------------------------------------------------------- events */
 listen('overlay-geom', ({ payload }) => { G = payload; });
 listen('capture-begin', ({ payload }) => beginCapture(payload));
 listen('overlay-toggle', ({ payload }) => {
   if (payload === 'hud') { HUD = !HUD; toast(HUD ? 'Telemetry on' : 'Telemetry off'); }
   if (payload === 'pill') { PILL = !PILL; try { localStorage.setItem('aether.pill', PILL ? '1' : '0'); } catch { /* ignore */ } toast(PILL ? 'Status pill on' : 'Status pill hidden'); }
+  if (payload === 'zones') toggleZones();
   sync();
 });
 listen('overlay-toggle-req', ({ payload }) => {
   if (payload === 'hud') { HUD = !HUD; invoke('overlay_geom').then(g => { if (g.k) G = g; }).catch(() => {}); sync(); }
+  if (payload === 'zones') toggleZones();
+});
+listen('zones-data', ({ payload }) => {
+  ZONES_DATA = payload;
+  if (ZONES) refreshZonesWin().then(renderZones);
 });
 listen('pill-pref', ({ payload }) => { PILL = !!payload; sync(); });
 listen('overlay-toast', ({ payload }) => toast(payload));
