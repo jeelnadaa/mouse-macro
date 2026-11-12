@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AetherMacro — Surveyor Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#0c1416;--slate:#121d20;--deep:#1a282c;--raise:#223338;--line:rgba(222,230,220,.1);--line2:rgba(222,230,220,.22);--bone:#e6e1d3;--fog:#93a39f;--dim:#5f706c;--brass:#d4a94f;--rect:#6fa8ff;--circ:#4fc3a1;--poly:#c59bff;--mad:#ef6b57;--spring:cubic-bezier(.34,1.45,.5,1);--ease:cubic-bezier(.2,.8,.2,1);--f:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;--m:'Spline Sans Mono',ui-monospace,Consolas,monospace}
+*{box-sizing:border-box;margin:0}html,body{height:100%}
+body{background:var(--ink);color:var(--bone);font:400 14px/1.5 var(--f);display:grid;grid-template-columns:216px 1fr;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}button{cursor:pointer;background:none;border:0}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.num,kbd,.m{font-family:var(--m);font-variant-numeric:tabular-nums}
+aside{border-right:1px solid var(--line);padding:22px 14px;display:flex;flex-direction:column;gap:26px;background:var(--slate);position:sticky;top:0;height:100vh}
+.brand{display:flex;gap:10px;align-items:center;font:600 19px var(--f);font-stretch:80%;letter-spacing:-.02em;padding:0 8px}.brand span{color:var(--brass);font-weight:400}
+nav{position:relative;display:flex;flex-direction:column}
+nav button{text-align:left;padding:9px 12px;border-radius:8px;color:var(--fog);font-size:14.5px;position:relative;z-index:1;transition:color .25s}
+nav button:hover,nav button.on{color:var(--bone)}
+.ind{position:absolute;left:0;right:0;border-radius:8px;background:var(--raise);box-shadow:inset 2px 0 0 var(--brass);transition:transform .5s var(--spring),height .3s;z-index:0}
+.prof{margin-top:auto;padding:12px;border:1px solid var(--line);border-radius:12px;font-size:13px;color:var(--fog)}.prof b{display:block;color:var(--bone);font-weight:500}
+main{padding:34px 44px 60px;max-width:1180px;min-width:0}
+.view{display:none}.view.on{display:block;animation:in .5s var(--ease)}
+@keyframes in{from{opacity:0;transform:translateY(10px)}}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;margin-bottom:26px}
+h1{font:600 clamp(34px,4.6vw,56px)/1 var(--f);font-stretch:78%;letter-spacing:-.035em}
+h2{font:600 22px var(--f);letter-spacing:-.02em;font-stretch:88%}
+.lede{color:var(--fog);max-width:52ch;margin-top:10px}
+.btn{padding:9px 16px;border-radius:999px;border:1px solid var(--line2);display:inline-flex;gap:9px;align-items:center;transition:transform .35s var(--spring),background .2s,border-color .2s}
+.btn:hover{background:var(--deep);border-color:var(--fog)}.btn:active{transform:scale(.96)}
+.btn.pri{background:var(--brass);color:#1b1405;border-color:var(--brass);font-weight:600}.btn.pri:hover{background:#e4bd6a}
+.btn.mad{border-color:var(--mad);color:var(--mad)}
+kbd{font-size:11px;padding:1px 6px;border-radius:5px;border:1px solid var(--line2);border-bottom-width:2px;color:var(--fog);background:var(--slate)}
+.pri kbd{background:#0002;border-color:#0003;color:#1b1405}
+.facts{display:grid;grid-template-columns:repeat(4,1fr);border-block:1px solid var(--line);margin-bottom:30px}
+.facts div{padding:14px 18px;border-left:1px solid var(--line)}.facts div:first-child{border:0;padding-left:0}
+dt{color:var(--dim);font-size:12.5px}dd{font-weight:500;font-size:15px;margin-top:2px}
+.pass{display:flex;gap:3px;height:34px;margin:8px 0 28px}
+.pass i{border-radius:5px;background:var(--deep);position:relative;overflow:hidden;transition:background .4s}
+.pass i b{position:absolute;inset:0;transform:scaleX(0);transform-origin:left;transition:transform 1s linear}
+.pass i.on b{transform:scaleX(1)}.pass i.done b{transform:scaleX(1);opacity:.35}
+#ledger{list-style:none;padding:0;position:relative}
+#ledger:before{content:"";position:absolute;left:13px;top:12px;bottom:12px;width:1px;background:var(--line2);transform-origin:top;animation:draw 1.1s var(--ease) both}
+@keyframes draw{from{transform:scaleY(0)}}
+#ledger li{display:grid;grid-template-columns:28px 1fr auto auto;gap:16px;align-items:center;padding:13px 10px 13px 0;border-bottom:1px solid var(--line);position:relative;animation:pop .6s var(--spring) both;animation-delay:calc(var(--i)*70ms + .2s);transition:background .3s}
+@keyframes pop{from{opacity:0;transform:translateX(-12px)}}
+#ledger li:hover{background:linear-gradient(90deg,transparent,var(--slate))}
+#ledger li.on{background:linear-gradient(90deg,var(--deep),transparent)}
+.node{width:27px;height:27px;border-radius:50%;display:grid;place-items:center;background:var(--ink);border:1.5px solid var(--c);color:var(--c);font:500 11px var(--m);z-index:1;transition:.3s var(--spring)}
+li.on .node{background:var(--c);color:var(--ink);transform:scale(1.2)}
+.st b{font-weight:500;font-size:15.5px}.st span{display:block;color:var(--fog);font-size:13px}
+.thumb{width:58px;height:34px}.rowact{opacity:0;display:flex;gap:6px;transition:opacity .2s}li:hover .rowact,li:focus-within .rowact{opacity:1}
+.rowact button{color:var(--fog);padding:4px 9px;border-radius:6px;font-size:13px}.rowact button:hover{background:var(--raise);color:var(--bone)}.rowact .del:hover{color:var(--mad)}
+.scene{position:relative;height:540px;border-radius:18px;overflow:hidden;background:radial-gradient(120% 90% at 30% 20%,#2c3a36,#0b1210 70%);border:1px solid var(--line)}
+.scene .g{position:absolute;border:1px solid #fff2;background:#ffffff0d;border-radius:4px;color:#ffffff66;display:grid;place-items:center;font-size:13px}
+.dim{position:absolute;inset:0;background:#050a0cb8;backdrop-filter:blur(3px)}
+.scene svg.cv{position:absolute;inset:0;width:100%;height:100%}
+.glass{background:#0f1a1de0;backdrop-filter:blur(18px);border:1px solid var(--line2);border-radius:14px;box-shadow:0 24px 60px -12px #000c}
+.pal{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);padding:14px;width:min(640px,92%);display:grid;gap:12px}
+.seg{display:inline-flex;background:var(--ink);border-radius:10px;padding:3px;position:relative}
+.seg button{padding:6px 12px;border-radius:8px;color:var(--fog);font-size:13px;display:flex;gap:7px;align-items:center;transition:.25s}
+.seg button.on{background:var(--raise);color:var(--bone);box-shadow:0 0 0 1px var(--line2)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+select,input[type=text]{background:var(--ink);border:1px solid var(--line2);border-radius:8px;padding:6px 10px}
+.hit{fill:var(--bone);animation:ping 1.2s var(--ease) forwards;animation-delay:var(--d)}
+@keyframes ping{0%{opacity:0;r:1}25%{opacity:1;r:5}100%{opacity:.85;r:2.2}}
+.read{position:absolute;top:16px;right:16px;padding:8px 12px;font-size:12.5px;color:var(--fog)}
+.hud{position:absolute;top:16px;left:16px;width:248px;padding:14px;opacity:.8;transition:opacity .3s}.scene:hover .hud{opacity:1}
+.hud .xy{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;margin:8px 0 12px}.hud small{color:var(--dim);font-size:11.5px;display:block}
+.loupe{display:grid;grid-template-columns:repeat(7,1fr);width:84px;height:84px;border-radius:8px;overflow:hidden;border:1px solid var(--line2);flex:none}.loupe i:nth-child(25){outline:1.5px solid var(--brass);outline-offset:-1.5px;z-index:1}
+.pill{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);width:min(440px,92%);padding:14px 16px;display:grid;gap:10px;border-radius:22px}
+.beacon{width:9px;height:9px;border-radius:50%;background:var(--circ);box-shadow:0 0 0 0 var(--circ);animation:b 1.6s infinite}
+@keyframes b{70%{box-shadow:0 0 0 9px #4fc3a100}}
+.segbar{display:flex;gap:3px}.segbar i{flex:1;height:5px;border-radius:3px;background:var(--raise);position:relative;overflow:hidden}.segbar i b{position:absolute;inset:0;background:var(--brass);transform:scaleX(0);transform-origin:left}.segbar i.done b{transform:scaleX(1)}
+.panel{background:var(--slate);border:1px solid var(--line);border-radius:16px;padding:26px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.field{display:grid;gap:6px;margin-bottom:18px}.field label{color:var(--fog);font-size:13px;display:flex;justify-content:space-between}
+input[type=range]{width:100%;accent-color:var(--brass);height:20px}
+.sw{display:flex;gap:8px}.sw i{flex:1;height:34px;border-radius:8px;border:1px solid var(--line2)}
+.dlg{border-radius:18px;padding:24px;background:var(--slate);border:1px solid var(--line2);display:grid;gap:14px;align-content:start}
+.dlg.dng{border-color:var(--mad);box-shadow:0 0 0 4px #ef6b5718}.dlg.adv{border-color:var(--brass);box-shadow:0 0 0 4px #d4a94f14}
+.tele{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;font-size:13.5px}.tele dt{color:var(--fog)}.tele dd{margin:0;text-align:right}
+table{width:100%;border-collapse:collapse}td{padding:13px 8px;border-bottom:1px solid var(--line)}td:last-child{text-align:right}
+tr.warn td:nth-child(2) kbd{border-color:var(--brass);color:var(--brass)}.cf{color:var(--brass);font-size:12.5px}
+tr.listen kbd{animation:b 1s infinite;border-color:var(--brass);color:var(--brass)}
+#toast{position:fixed;bottom:28px;left:50%;transform:translate(-50%,30px);background:var(--bone);color:var(--ink);padding:10px 18px;border-radius:999px;opacity:0;pointer-events:none;transition:.5s var(--spring);font-weight:500}#toast.on{opacity:1;transform:translate(-50%,0)}
+#mlist{list-style:none;padding:0}
+#mlist li{display:grid;grid-template-columns:1fr 170px 70px auto;gap:20px;align-items:center;padding:16px 10px 16px 16px;border-bottom:1px solid var(--line);position:relative;animation:pop .5s var(--spring) both;animation-delay:calc(var(--i)*60ms);transition:background .3s}
+#mlist li:hover{background:linear-gradient(90deg,var(--slate),transparent)}
+#mlist li.cur:before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:2px;background:var(--brass);border-radius:2px}
+.mini{display:flex;gap:2px;height:8px}.mini i{border-radius:2px}
+#ledger.still:before,#ledger.still li{animation:none}
+#ledger li.empty{display:flex;justify-content:space-between;align-items:center;color:var(--fog);animation:none;padding-left:10px}
+h1[contenteditable]{cursor:text;border-radius:6px;outline-offset:8px}h1[contenteditable]:hover{box-shadow:0 2px 0 -1px var(--line2)}
+.prof{display:block;width:100%;text-align:left;transition:border-color .2s,background .2s}.prof:hover{border-color:var(--line2);background:var(--deep)}.prof span{display:block}#q{width:200px}
+@media(max-width:860px){#mlist li{grid-template-columns:1fr auto}.mini,.pt{display:none}body{grid-template-columns:1fr}aside{position:static;height:auto;flex-direction:row;overflow-x:auto;padding:12px}nav{flex-direction:row}.prof,.ind{display:none}nav button.on{background:var(--raise)}main{padding:22px 16px}.facts,.two{grid-template-columns:1fr 1fr}#ledger li{grid-template-columns:28px 1fr auto}.thumb{display:none}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body>
+<aside>
+<div class="brand"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d4a94f" stroke-width="1.6"><circle cx="12" cy="12" r="6.5"/><path d="M12 1v7M12 16v7M1 12h7M16 12h7"/></svg>Aether<span>macro</span></div>
+<nav id="nav"><i class="ind"></i>
+<button data-v="lib">Library</button><button data-v="seq" class="on">Sequence</button><button data-v="cap">Capture overlay</button><button data-v="hud">Heads-up display</button><button data-v="ins">Step inspector</button><button data-v="rec">Recorder</button><button data-v="saf">Safety</button><button data-v="key">Hotkeys</button></nav>
+<button class="prof" onclick="go('lib')" aria-label="Open macro library"><b id="pn"></b><span id="ps"></span></button>
+</aside>
+<main>
+
+<section class="view" id="lib">
+<div class="top"><div><h1>Library</h1><p class="lede">Every macro you have saved. Each one keeps its own steps, target window and run history, and changes save as you make them.</p></div>
+<div class="row"><input type="text" id="q" placeholder="Search macros" aria-label="Search macros"><button class="btn pri" id="newm">New macro</button></div></div>
+<ol id="mlist"></ol>
+</section>
+
+<section class="view on" id="seq">
+<div class="top"><div><h1 id="mt" contenteditable="true" spellcheck="false" title="Click to rename" aria-label="Macro name"></h1><p class="lede" id="ml"></p></div>
+<div class="row"><button class="btn" onclick="go('cap')">Capture step <kbd>F8</kbd></button><button class="btn">Step through <kbd>F11</kbd></button><button class="btn pri" id="run">Run <kbd>F5</kbd></button></div></div>
+<dl class="facts"><div><dt>Target window</dt><dd id="ft"></dd></div><div><dt>Loop policy</dt><dd>Continuous, restart on finish</dd></div><div><dt>Humanization</dt><dd>Bézier paths, jitter ±120 ms</dd></div><div><dt>Focus policy</dt><dd>Raise window, pause if minimized</dd></div></dl>
+<h2>One pass</h2><div class="pass" id="pass"></div>
+<ol id="ledger"></ol>
+</section>
+
+<section class="view" id="cap">
+<div class="top"><div><h1>Capture overlay</h1><p class="lede">Press F8 over the game. The frame freezes, you draw the zone, press Enter, and you are back in the game.</p></div></div>
+<div class="scene" id="capScene"><div class="dim"></div>
+<svg class="cv" id="cv" viewBox="0 0 800 540" preserveAspectRatio="xMidYMid slice"><g id="zone"></g><g id="hits"></g></svg>
+<div class="glass read m" id="cur">684, 412</div>
+<div class="glass pal"><div class="row"><div class="seg" id="tools"><button data-k="rect" class="on">Rectangle</button><button data-k="circ">Circle</button><button data-k="poly">Polygon</button><button data-k="pt">Point</button></div><span class="m" id="dims" style="color:var(--fog);font-size:12.5px"></span></div>
+<div class="row"><div class="row" style="justify-content:flex-start"><select id="act"><option>Left click</option><option>Double click</option><option>Hold 2.5 s</option><option>Drag and drop</option></select><div class="seg" id="dist"><button data-d="g" class="on">Gaussian</button><button data-d="u">Uniform</button></div></div>
+<div class="row"><button class="btn" id="test">Test hits</button><button class="btn pri" id="save">Save step <kbd>↵</kbd></button></div></div></div></div>
+</section>
+
+<section class="view" id="hud">
+<div class="top"><div><h1>Heads-up display</h1><p class="lede">Two click-through layers. Move the pointer across the scene to read the telemetry.</p></div><button class="btn mad" onclick="go('saf')">Abort <kbd>Esc</kbd></button></div>
+<div class="scene" id="hudScene">
+<div class="glass hud"><div class="row"><b>Telemetry</b><kbd>F9</kbd></div>
+<div class="xy m"><div><small>Client</small><span id="cx">0, 0</span></div><div><small>Screen</small><span id="sx">0, 0</span></div></div>
+<div class="row" style="justify-content:flex-start;flex-wrap:nowrap;gap:12px"><div class="loupe" id="loupe"></div><div class="m" style="font-size:13px"><small>Under pointer</small><span id="hex">#000000</span><small style="margin-top:6px">Guard</small><span style="color:var(--circ)">ΔE ready</span></div></div></div>
+<div class="glass pill"><div class="row"><div class="row" style="justify-content:flex-start;gap:10px"><span class="beacon"></span><b>Running</b><span style="color:var(--fog)">pass <span class="num" id="lp">18</span> of 100</span></div><span class="m" id="el" style="color:var(--fog)">00:14:22</span></div>
+<div class="segbar" id="sb"></div>
+<div class="row" style="font-size:13px"><span id="stepname">Circle zone, collect ore</span><span class="m" style="color:var(--brass)" id="nx">340 ms</span></div>
+<div class="row" style="font-size:12px;color:var(--dim)"><span><kbd>F6</kbd> pause</span><span><kbd>F11</kbd> single step</span><span><kbd>Esc</kbd> abort</span></div></div></div>
+</section>
+
+<section class="view" id="ins">
+<div class="top"><div><h1>Step inspector</h1><p class="lede">Every number a step owns, with the distribution drawn as you change it.</p></div></div>
+<div class="panel two">
+<div><h2 style="margin-bottom:18px">Select upgrade tab</h2>
+<div class="field"><label>Action</label><select><option>Left click</option><option>Right click</option></select></div>
+<div class="field"><label>Delay after click <span class="m" id="dl">400 ms, σ 65</span></label><input type="range" id="mu" min="100" max="1200" value="400" aria-label="Mean delay"><input type="range" id="sg" min="10" max="120" value="65" aria-label="Spread"></div>
+<div class="field"><label>Pixel guard, expected colour <span class="m">#4A90E2</span></label><div class="sw"><i style="background:#4a90e2"></i><i id="edge"></i></div></div>
+<div class="field"><label>Tolerance <span class="m" id="tl">12%</span></label><input type="range" id="tol" min="1" max="40" value="12"></div>
+<div class="field"><label>If the guard times out after 2,500 ms</label><select><option>Retry 3 times, then pause</option><option>Skip step</option><option>Play alert and halt</option></select></div></div>
+<div><svg viewBox="0 0 400 170" style="width:100%"><path id="area" fill="#d4a94f26"/><path id="curve" fill="none" stroke="#d4a94f" stroke-width="2"/><path d="M0 140H400" stroke="var(--line2)"/><g id="clamp" stroke="var(--dim)" stroke-dasharray="3 4"></g><text id="tmin" x="8" y="162" fill="#93a39f" font-size="11" font-family="Spline Sans Mono"></text><text id="tmax" x="392" y="162" fill="#93a39f" font-size="11" text-anchor="end" font-family="Spline Sans Mono"></text></svg>
+<p class="lede" style="font-size:13px">Values outside the dashed lines are clamped, so a delay can never run away.</p>
+<div class="row" style="margin-top:26px;justify-content:flex-end"><button class="btn">Cancel</button><button class="btn pri" onclick="toast('Step saved')">Save <kbd>↵</kbd></button></div></div></div>
+</section>
+
+<section class="view" id="rec">
+<div class="top"><div><h1>Recorder</h1><p class="lede">For drags and sweeps where the path matters. Trim the idle edges and smooth the shaky parts.</p></div><div class="seg" id="hz"><button class="on">60 Hz</button><button>120 Hz</button></div></div>
+<div class="panel"><svg viewBox="0 0 800 300" style="width:100%"><g id="trace" fill="none" stroke-linecap="round" stroke-linejoin="round"></g></svg>
+<div class="two" style="margin-top:18px"><div class="field"><label>Trim start <span class="m" id="ta">0%</span></label><input type="range" id="a" min="0" max="45" value="8"></div><div class="field"><label>Trim end <span class="m" id="tb">100%</span></label><input type="range" id="b" min="55" max="100" value="94"></div></div>
+<div class="row"><div class="field" style="flex:1;margin:0"><label>Smoothing <span class="m" id="sm">40</span></label><input type="range" id="smo" min="0" max="100" value="40"></div><div class="m" id="rs" style="color:var(--fog)"></div><button class="btn pri" onclick="toast('Recording saved as 1 step')">Save as step</button></div></div>
+</section>
+
+<section class="view" id="saf">
+<div class="top"><div><h1>Safety</h1><p class="lede">Dialogs that interrupt you are written to be calm and specific.</p></div></div>
+<div class="two">
+<div class="dlg dng" id="kill"><h2>Macro stopped</h2><p style="color:var(--fog)">You pressed Esc. Nothing is still held down.</p>
+<dl class="tele"><dt>Abort latency</dt><dd class="m" id="lat">1.8 ms</dd><dt>Mouse buttons</dt><dd>Left and right released</dd><dt>Modifiers</dt><dd>Ctrl and Shift released</dd><dt>Stopped at</dt><dd>Pass 18, step 2</dd></dl>
+<div class="row"><button class="btn" id="replay">Replay abort</button><button class="btn pri">Back to sequence</button></div></div>
+<div class="dlg adv" id="adv"><h2>These clicks look robotic</h2><p style="color:var(--fog)" id="advp">Steps 3 and 4 fire under 10 ms apart at the exact same pixel. Many games flag that pattern.</p>
+<dl class="tele"><dt>Delay</dt><dd class="m" id="a1">8 ms fixed</dd><dt>Position spread</dt><dd class="m" id="a2">0 px</dd></dl>
+<div class="row"><button class="btn">Keep as is</button><button class="btn pri" id="fix">Add natural delays, ±60 ms</button></div></div></div>
+</section>
+
+<section class="view" id="key">
+<div class="top"><div><h1>Hotkeys</h1><p class="lede">Select a row, press the new combination. Clashes with common game bindings are flagged before you save.</p></div><div class="row"><button class="btn" data-tone="880">Start chime</button><button class="btn" data-tone="440">Stop chime</button><button class="btn" data-tone="220">Alert</button></div></div>
+<div class="panel"><table id="kt"></table></div>
+</section>
+</main><div id="toast"></div>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],C={rect:'var(--rect)',circ:'var(--circ)',poly:'var(--poly)',pt:'var(--brass)'};
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(e.t);e.t=setTimeout(()=>e.classList.remove('on'),1800)}
+/* nav */
+const nav=$('#nav'),ind=$('.ind');
+function go(v){if(v==='lib')lib();$$('.view').forEach(x=>x.classList.toggle('on',x.id===v));$$('#nav button').forEach(b=>{const o=b.dataset.v===v;b.classList.toggle('on',o);if(o){ind.style.transform=`translateY(${b.offsetTop}px)`;ind.style.height=b.offsetHeight+'px'}});scrollTo(0,0)}
+nav.onclick=e=>e.target.dataset.v&&go(e.target.dataset.v);addEventListener('load',()=>go('seq'));
+/* sequence + library */
+const th={rect:'<rect x="8" y="8" width="42" height="18" rx="2"/>',circ:'<circle cx="29" cy="17" r="12"/>',poly:'<path d="M10 26L22 6l28 4-6 16z"/>',pt:'<path d="M29 7v20M19 17h20"/>'};
+const fmt=ms=>ms>=1000?(ms/1000).toFixed(1)+' s':ms+' ms',esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])),pl=n=>n+' step'+(n==1?'':'s');
+const ago=t=>{if(!t)return'Never run';const s=(Date.now()-t)/1e3;return'Ran '+(s<60?'just now':s<3600?Math.round(s/60)+' min ago':s<86400?Math.round(s/3600)+' h ago':Math.round(s/86400)+' days ago')};
+const N0=Date.now(),mk=(id,name,target,steps,ran)=>({id,name,target,steps,ran,saved:N0}),st=(t,a,k,d,ms)=>({t,a,k,d,ms});
+let DB=null;try{DB=JSON.parse(localStorage.getItem('aether.v1'))}catch(e){}
+if(!DB||!DB.macros||!DB.macros.length)DB={active:'m1',macros:[
+mk('m1','Smithing loop','eldenring.exe',[st('Open merchant dialogue','Left click','rect','Box 120×45',850),st('Select upgrade tab','Left click, guarded','circ','Circle radius 28',400),st('Deposit ore stack','Drag and drop','poly','Polygon, 4 vertices',1400),st('Confirm','Key tap, E','pt','No zone',600),st('Wait for menu to close','Pixel guard, 3 s timeout','rect','Box 64×64',3100)],N0-6e5),
+mk('m2','Daily login claim','eldenring.exe',[st('Open mail','Left click','rect','Box 96×40',700),st('Claim all','Left click','circ','Circle radius 22',900)],N0-864e5),
+mk('m3','Fishing cycle','stardew.exe',[st('Cast line','Hold 1.2 s','pt','No zone',1200),st('Wait for bite','Pixel guard, 8 s timeout','rect','Box 48×48',4000),st('Reel in','Left click','circ','Circle radius 30',800)],null)]};
+const save=()=>{try{localStorage.setItem('aether.v1',JSON.stringify(DB))}catch(e){}},cur=()=>DB.macros.find(m=>m.id===DB.active)||DB.macros[0];
+let hist=[],run=null,ix=-1;
+function mut(f,msg){hist.push(JSON.stringify(DB));if(hist.length>50)hist.shift();f();cur().saved=Date.now();save();render();lib();if(msg)toast(msg)}
+function stop(){clearInterval(run);run=null;ix=-1;$('#run').innerHTML='Run <kbd>F5</kbd>'}
+function render(anim){stop();const m=cur(),S=m.steps,tot=S.reduce((a,s)=>a+s.ms,0);
+$('#mt').textContent=m.name;$('#pn').textContent=m.name;$('#ps').textContent=pl(S.length)+', autosaved';$('#ft').textContent=m.target;
+$('#ml').textContent=S.length?`${pl(S.length)}, about ${(tot/1000).toFixed(1)} seconds per pass. Zones follow the window if you move it.`:'Nothing here yet. Capture the first step over the game.';
+$('#pass').innerHTML=S.map(s=>`<i style="flex:${s.ms}"><b style="background:${C[s.k]}"></b></i>`).join('');
+$('#ledger').classList.toggle('still',!anim);
+$('#ledger').innerHTML=S.length?S.map((s,i)=>`<li style="--i:${i};--c:${C[s.k]}"><span class="node">${i+1}</span><div class="st"><b>${esc(s.t)}</b><span>${esc(s.a)}</span></div><svg class="thumb" viewBox="0 0 58 34" fill="${C[s.k]}22" stroke="${C[s.k]}" stroke-width="1.5">${th[s.k]}</svg><div class="row" style="flex-wrap:nowrap;gap:14px"><span class="m" style="color:var(--fog);font-size:12.5px;width:60px;text-align:right">${fmt(s.ms)}</span><div class="rowact"><button data-a="edit" data-i="${i}">Edit</button><button data-a="dup" data-i="${i}">Duplicate</button><button class="del" data-a="del" data-i="${i}">Delete</button></div></div></li>`).join(''):`<li class="empty"><span>No steps yet. Press F8 over the game to capture the first one.</span><button class="btn pri" onclick="go('cap')">Capture step</button></li>`}
+function tick(){const L=cur().steps.length;if(!L)return;ix=(ix+1)%L;$$('#ledger li').forEach((l,i)=>l.classList.toggle('on',i===ix));$$('#pass i').forEach((s,i)=>{s.classList.toggle('on',i===ix);s.classList.toggle('done',i<ix)})}
+$('#run').onclick=function(){if(run){stop();return}if(!cur().steps.length){toast('Add a step first');return}this.innerHTML='Pause <kbd>F6</kbd>';cur().ran=Date.now();save();tick();run=setInterval(tick,1100)};
+$('#ledger').onclick=e=>{const b=e.target.closest('button[data-a]');if(!b)return;const i=+b.dataset.i,a=b.dataset.a;
+if(a==='edit')go('ins');
+if(a==='dup')mut(()=>{const S=cur().steps;S.splice(i+1,0,{...S[i],t:S[i].t+' copy'})},'Step duplicated');
+if(a==='del')mut(()=>cur().steps.splice(i,1),'Step deleted, Ctrl+Z to undo')};
+function lib(){const q=($('#q').value||'').toLowerCase(),L=DB.macros.filter(m=>m.name.toLowerCase().includes(q));
+$('#mlist').innerHTML=L.length?L.map((m,i)=>{const tot=m.steps.reduce((a,s)=>a+s.ms,0);return`<li class="${m.id===DB.active?'cur':''}" style="--i:${i}"><div class="st"><b>${esc(m.name)}</b><span>${esc(m.target)}, ${pl(m.steps.length)}. ${ago(m.ran)}</span></div><div class="mini">${m.steps.map(s=>`<i style="flex:${s.ms};background:${C[s.k]}"></i>`).join('')||'<i style="flex:1;background:var(--deep)"></i>'}</div><span class="m pt" style="color:var(--fog);font-size:12.5px;text-align:right">${tot?fmt(tot):'Empty'}</span><div class="row" style="flex-wrap:nowrap;gap:8px"><button class="btn" data-a="open" data-id="${m.id}">${m.id===DB.active?'Open now':'Open'}</button><div class="rowact"><button data-a="dup" data-id="${m.id}">Duplicate</button><button class="del" data-a="del" data-id="${m.id}">Delete</button></div></div></li>`}).join(''):'<li style="display:block;color:var(--fog)">No macros match that search.</li>'}
+$('#q').oninput=lib;
+$('#mlist').onclick=e=>{const b=e.target.closest('button[data-a]');if(!b)return;const id=b.dataset.id,a=b.dataset.a;
+if(a==='open'){DB.active=id;save();render(true);lib();go('seq')}
+if(a==='dup')mut(()=>{const m=DB.macros.find(x=>x.id===id),c=JSON.parse(JSON.stringify(m));c.id='m'+Date.now();c.name=m.name+' copy';c.ran=null;DB.macros.splice(DB.macros.indexOf(m)+1,0,c)},'Macro duplicated');
+if(a==='del'){if(DB.macros.length<2){toast('Keep at least one macro');return}mut(()=>{DB.macros=DB.macros.filter(x=>x.id!==id);if(DB.active===id)DB.active=DB.macros[0].id},'Macro deleted, Ctrl+Z to undo')}};
+$('#newm').onclick=()=>{mut(()=>{let n=1;while(DB.macros.some(m=>m.name==='Untitled macro '+n))n++;const id='m'+Date.now();DB.macros.push(mk(id,'Untitled macro '+n,'eldenring.exe',[],null));DB.active=id});go('seq');const t=$('#mt');t.focus();getSelection().selectAllChildren(t)};
+$('#mt').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();e.target.blur()}};
+$('#mt').onblur=e=>{const v=e.target.textContent.trim();if(v&&v!==cur().name)mut(()=>cur().name=v,'Renamed');else e.target.textContent=cur().name};
+addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'&&hist.length&&!e.target.isContentEditable&&!/INPUT|SELECT/.test(e.target.tagName)){e.preventDefault();DB=JSON.parse(hist.pop());save();render();lib();toast('Undone')}});
+render(true);lib();
+/* capture */
+const S={rect:{k:'rect',x:300,y:190,w:208,h:64},circ:{k:'circ',cx:404,cy:222,r:48},poly:{k:'poly',p:[[300,260],[360,180],[470,200],[500,270],[400,300]]},pt:{k:'pt',x:404,y:222}};
+let tool='rect',dist='g';
+$('#capScene').insertAdjacentHTML('afterbegin','<div class="g" style="left:8%;top:12%;width:20%;height:70%">Inventory</div><div class="g" style="left:34%;top:30%;width:26%;height:12%">Upgrade</div><div class="g" style="left:34%;top:48%;width:26%;height:12%">Reforge</div><div class="g" style="left:70%;top:12%;width:22%;height:40%">Merchant</div>');
+function draw(){const s=S[tool],c=C[tool];let h='';
+if(tool==='rect')h=`<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" rx="3"/>`;
+if(tool==='circ')h=`<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}"/>`;
+if(tool==='poly')h=`<polygon points="${s.p}"/>`;
+if(tool==='pt')h=`<path d="M${s.x-14} ${s.y}h28M${s.x} ${s.y-14}v28"/>`;
+$('#zone').innerHTML=`<g fill="${c}" fill-opacity=".14" stroke="${c}" stroke-width="1.8" stroke-dasharray="${tool==='pt'?0:'6 5'}">${h}</g>`;
+$('#dims').textContent={rect:`${Math.round(s.w)}×${Math.round(s.h)} px`,circ:`radius ${Math.round(s.r)} px`,poly:`${s.p?.length} vertices`,pt:'exact pixel'}[tool];$('#hits').innerHTML=''}
+const gs=()=>Math.sqrt(-2*Math.log(1-Math.random()))*Math.cos(6.283*Math.random());
+const inPoly=(p,x,y)=>{let r=false;for(let i=0,j=p.length-1;i<p.length;j=i++)if((p[i][1]>y)!=(p[j][1]>y)&&x<(p[j][0]-p[i][0])*(y-p[i][1])/(p[j][1]-p[i][1])+p[i][0])r=!r;return r};
+function sample(){const s=S[tool];if(tool==='pt')return[s.x,s.y];let b,c;
+if(tool==='rect'){b=[s.x,s.y,s.x+s.w,s.y+s.h]}if(tool==='circ'){b=[s.cx-s.r,s.cy-s.r,s.cx+s.r,s.cy+s.r]}if(tool==='poly'){const xs=s.p.map(p=>p[0]),ys=s.p.map(p=>p[1]);b=[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)]}
+c=[(b[0]+b[2])/2,(b[1]+b[3])/2];if(tool==='poly')c=[s.p.reduce((a,p)=>a+p[0],0)/s.p.length,s.p.reduce((a,p)=>a+p[1],0)/s.p.length];
+for(let n=0;n<300;n++){const x=dist==='g'?c[0]+gs()*(b[2]-b[0])/5:b[0]+Math.random()*(b[2]-b[0]),y=dist==='g'?c[1]+gs()*(b[3]-b[1])/5:b[1]+Math.random()*(b[3]-b[1]);
+if(tool==='rect'&&x>b[0]&&x<b[2]&&y>b[1]&&y<b[3]||tool==='circ'&&Math.hypot(x-s.cx,y-s.cy)<=s.r||tool==='poly'&&inPoly(s.p,x,y))return[x,y]}return c}
+$('#test').onclick=()=>{$('#hits').innerHTML=Array.from({length:35},()=>{const[p,q]=sample();return`<circle class="hit" cx="${p}" cy="${q}" style="--d:${Math.random()*.9}s"/>`}).join('')};
+$('#tools').onclick=e=>{if(!e.target.dataset.k)return;tool=e.target.dataset.k;$$('#tools button').forEach(b=>b.classList.toggle('on',b===e.target));draw()};
+$('#dist').onclick=e=>{if(!e.target.dataset.d)return;dist=e.target.dataset.d;$$('#dist button').forEach(b=>b.classList.toggle('on',b===e.target))};
+$('#save').onclick=()=>{const k=tool,d=$('#dims').textContent.replace(' px','');mut(()=>cur().steps.push({t:'New '+{rect:'box',circ:'circle',poly:'polygon',pt:'point'}[k]+' step',a:$('#act').value,k,d:k==='pt'?'No zone':{rect:'Box ',circ:'Circle ',poly:'Polygon, '}[k]+d,ms:700}),`Step ${cur().steps.length+1} added to ${cur().name}`)};
+const cv=$('#cv'),pt=e=>{const r=cv.getBoundingClientRect(),k=Math.max(r.width/800,r.height/540);return[(e.clientX-r.left-(r.width-800*k)/2)/k,(e.clientY-r.top-(r.height-540*k)/2)/k]};
+let o=null;cv.style.cursor='crosshair';
+cv.onpointerdown=e=>{const p=pt(e);if(tool==='poly'){if(!o){S.poly.p=[];o=1}S.poly.p.push(p);draw();return}if(tool==='pt'){S.pt={k:'pt',x:p[0],y:p[1]};draw();return}o=p;cv.setPointerCapture(e.pointerId)};
+cv.onpointermove=e=>{const p=pt(e);$('#cur').textContent=Math.round(p[0]*2.4)+', '+Math.round(p[1]*2);if(!o||tool==='poly'||tool==='pt')return;
+if(tool==='rect')S.rect={k:'rect',x:Math.min(o[0],p[0]),y:Math.min(o[1],p[1]),w:Math.abs(p[0]-o[0]),h:Math.abs(p[1]-o[1])};
+if(tool==='circ')S.circ={k:'circ',cx:o[0],cy:o[1],r:Math.hypot(p[0]-o[0],p[1]-o[1])};draw()};
+cv.onpointerup=()=>{if(tool!=='poly')o=null};cv.ondblclick=()=>{o=null};draw();
+/* hud */
+$('#hudScene').insertAdjacentHTML('afterbegin','<div class="g" style="left:6%;top:30%;width:22%;height:50%">Quest log</div><div class="g" style="left:36%;top:22%;width:30%;height:34%">Smithing</div><div class="g" style="left:72%;top:30%;width:22%;height:12%">Upgrade</div>');
+$('#loupe').innerHTML='<i></i>'.repeat(49);const lc=$$('#loupe i'),pal=['#2c3a36','#4a90e2','#d4a94f','#0b1210','#4fc3a1','#3a2f2a'];
+$('#hudScene').onpointermove=e=>{const r=e.currentTarget.getBoundingClientRect(),x=Math.round((e.clientX-r.left)*1.6),y=Math.round((e.clientY-r.top)*1.6);$('#cx').textContent=x+', '+y;$('#sx').textContent=(x+1280)+', '+y;
+lc.forEach((c,i)=>{const px=x+(i%7)-3,py=y+((i/7)|0)-3;c.style.background=pal[((px>>5)+(py>>5)+((px*7+py*3)%5>3?1:0))%6&7]||pal[0]});const cc=lc[24].style.background;$('#hex').textContent=cc.startsWith('rgb')?'#'+cc.match(/\d+/g).map(n=>(+n).toString(16).padStart(2,'0')).join('').toUpperCase():cc.toUpperCase()};
+$('#sb').innerHTML='<i></i>'.repeat(5);let sp=1,lp=18,secs=862;setInterval(()=>{if(!$('#hud').classList.contains('on'))return;secs++;$('#el').textContent=new Date(secs*1000).toISOString().slice(11,19);sp=(sp+1)%6;if(!sp)lp++;$('#lp').textContent=lp;$$('#sb i').forEach((e,i)=>e.classList.toggle('done',i<sp));$('#nx').textContent=(200+Math.random()*500|0)+' ms'},900);
+/* inspector */
+function curve(){const m=+$('#mu').value,s=+$('#sg').value,sp=s*.9,h=Math.min(1,34/sp)*120;let d='';for(let x=0;x<=400;x+=4){const y=140-h*Math.exp(-.5*((x-200)/sp)**2);d+=(x?'L':'M')+x+' '+y.toFixed(1)}
+$('#curve').setAttribute('d',d);const a=Math.max(4,200-2*sp),b=Math.min(396,200+2*sp);let f='M'+a+' 140';for(let x=a;x<=b;x+=4)f+='L'+x+' '+(140-h*Math.exp(-.5*((x-200)/sp)**2)).toFixed(1);$('#area').setAttribute('d',f+`L${b} 140Z`);
+$('#clamp').innerHTML=`<path d="M${a} 20V140M${b} 20V140"/>`;$('#tmin').textContent=Math.max(0,m-2*s)+' ms';$('#tmax').textContent=(m+2*s)+' ms';$('#dl').textContent=m+' ms, σ '+s;
+const t=+$('#tol').value;$('#tl').textContent=t+'%';$('#edge').style.background=`color-mix(in srgb,#4a90e2 ${100-t*1.6}%,#fff)`}
+['mu','sg','tol'].forEach(i=>$('#'+i).oninput=curve);curve();
+/* recorder */
+const N=140,nz=Array.from({length:N},(_,i)=>{const r=Math.sin(i*12.9898)*43758.5453;return(r-Math.floor(r))-.5});
+function trace(){const sm=+$('#smo').value,w=Math.round(sm/12),a=+$('#a').value,b=+$('#b').value,P=[];for(let i=0;i<N;i++){const t=i/(N-1);P.push([60+680*t,150+90*Math.sin(t*6.5)*(1-.3*t)+nz[i]*46])}
+const Q=P.map((p,i)=>{let sx=0,sy=0,n=0;for(let j=Math.max(0,i-w);j<=Math.min(N-1,i+w);j++){sx+=P[j][0];sy+=P[j][1];n++}return[sx/n,sy/n]});
+const seg=(f,t,st,dash)=>`<path d="M${Q.slice(f,t+1).map(p=>p.map(v=>v.toFixed(1)).join(' ')).join('L')}" stroke="${st}" stroke-width="2.4" ${dash?'stroke-dasharray="3 6" opacity=".5"':''}/>`;
+const ia=Math.round(a/100*(N-1)),ib=Math.round(b/100*(N-1));$('#trace').innerHTML=seg(0,ia+1,'#5f706c',1)+seg(ia,ib+1,'#d4a94f')+seg(ib,N-1,'#5f706c',1)+`<circle cx="${Q[ia][0]}" cy="${Q[ia][1]}" r="6" fill="#4fc3a1"/><circle cx="${Q[ib][0]}" cy="${Q[ib][1]}" r="6" fill="#ef6b57"/>`;
+$('#ta').textContent=a+'%';$('#tb').textContent=b+'%';$('#sm').textContent=sm;$('#rs').textContent=`${((b-a)*8.4/100).toFixed(1)} s kept of 8.4 s, ${Math.round((b-a)/100*N*(hz/60))} points`}
+let hz=60;['a','b','smo'].forEach(i=>$('#'+i).oninput=trace);$('#hz').onclick=e=>{if(e.target.tagName!=='BUTTON')return;hz=parseInt(e.target.textContent);$$('#hz button').forEach(x=>x.classList.toggle('on',x===e.target));trace()};trace();
+/* safety */
+$('#replay').onclick=()=>{const k=$('#kill');k.animate([{transform:'scale(1)'},{transform:'scale(.97)'},{transform:'scale(1)'}],{duration:500,easing:'cubic-bezier(.34,1.45,.5,1)'});$('#lat').textContent=(1.4+Math.random()*.9).toFixed(1)+' ms'};
+$('#fix').onclick=function(){$('#a1').textContent='140 to 260 ms, natural';$('#a2').textContent='±3 px, gaussian';$('#advp').textContent='Fixed. Steps 3 and 4 now vary a little each pass.';this.textContent='Applied';this.disabled=true;toast('Natural delays added')};
+/* hotkeys */
+const hk=[['Start or resume','F5'],['Pause','F6'],['Step through','F11'],['Quick capture, silent','F7'],['Capture overlay','F8'],['Record path','Ctrl+Shift+R'],['Toggle telemetry','F9'],['Toggle status pill','F10'],['Emergency stop','Esc']];
+const cf={F5:'Quick save in many RPGs',F9:'Quick load in many RPGs',F12:'Steam screenshot',F11:'Fullscreen in browsers and some games'};let lis2=null;
+function kt(){$('#kt').innerHTML=hk.map((h,i)=>{const c=cf[h[1]];return`<tr class="${c?'warn':''} ${lis2===i?'listen':''}"><td>${h[0]}</td><td>${h[1].split('+').map(k=>`<kbd>${k}</kbd>`).join(' ')}</td><td class="cf">${c?'Clashes with: '+c:''}</td><td><button class="btn" data-i="${i}">${lis2===i?'Press keys':'Rebind'}</button></td></tr>`}).join('')}
+$('#kt').onclick=e=>{if(e.target.dataset.i){lis2=+e.target.dataset.i;kt()}};
+addEventListener('keydown',e=>{if(lis2===null)return;e.preventDefault();if(['Control','Shift','Alt'].includes(e.key))return;hk[lis2][1]=[e.ctrlKey&&'Ctrl',e.shiftKey&&'Shift',e.altKey&&'Alt',e.key.length>1?e.key:e.key.toUpperCase()].filter(Boolean).join('+');lis2=null;kt()});kt();
+$$('[data-tone]').forEach(b=>b.onclick=()=>{const a=new AudioContext(),o=a.createOscillator(),g=a.createGain();o.frequency.value=+b.dataset.tone;o.connect(g);g.connect(a.destination);g.gain.setValueAtTime(.001,a.currentTime);g.gain.exponentialRampToValueAtTime(.2,a.currentTime+.03);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.5);o.start();o.stop(a.currentTime+.55)});
+</script></body></html>

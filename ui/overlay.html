@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AetherMacro overlay</title>
+<link rel="stylesheet" href="base.css">
+<style>
+html,body{height:100%;background:transparent!important;overflow:hidden}
+body{color:var(--bone);font:400 14px/1.5 var(--f);-webkit-font-smoothing:antialiased;user-select:none;cursor:default}
+.glass{background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--line2);border-radius:10px;box-shadow:0 24px 60px -12px #000c}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.row.start{justify-content:flex-start}
+kbd{font-size:11px;padding:1px 6px;border-radius:3px;border:1px solid var(--line2);border-bottom-width:2px;color:var(--fog);background:var(--slate)}
+.btn{padding:8px 16px;min-height:34px;border-radius:7px;border:1px solid var(--line2);display:inline-flex;gap:9px;align-items:center;transition:transform .35s var(--spring),background .2s}
+.btn:hover{background:var(--deep)}.btn:active{transform:scale(.96)}
+.btn.pri{background:var(--brass);color:var(--on-brass);border-color:var(--brass);font-weight:600}
+.btn.pri:hover{background:var(--brass-hi)}
+.btn:disabled{opacity:.45;cursor:default}
+.pri kbd{background:#0002;border-color:#0003;color:var(--on-brass)}
+.seg{display:inline-flex;background:var(--ink);border-radius:7px;padding:3px}
+.seg button{padding:6px 12px;border-radius:5px;color:var(--fog);font-size:13px;display:flex;gap:7px;align-items:center;transition:.25s}
+.seg button.on{background:var(--raise);color:var(--bone);box-shadow:0 0 0 1px var(--line2)}
+.seg kbd{font-size:10px;padding:0 4px}
+select,input[type=text]{background:var(--ink);border:1px solid var(--line2);border-radius:6px;padding:6px 10px;min-height:34px}
+input[type=checkbox]{accent-color:var(--brass);width:15px;height:15px}
+.check{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--fog);cursor:pointer}
+
+#cap{position:fixed;inset:0;display:none}
+#cap.on{display:block}
+#cv{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
+.pal{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);padding:14px;width:min(720px,94%);display:grid;gap:12px;cursor:default}
+.read{position:absolute;top:16px;right:16px;padding:8px 12px;font-size:12.5px;color:var(--fog)}
+.help{position:absolute;top:16px;left:50%;transform:translateX(-50%);padding:8px 14px;font-size:13px;color:var(--fog);border-radius:8px;white-space:nowrap}
+.winlabel{font:500 12px var(--m);fill:var(--brass)}
+.hit{fill:var(--bone);animation:ping 1.2s var(--ease) both;animation-delay:var(--d)}
+@keyframes ping{0%{opacity:0;r:1}25%{opacity:1;r:5}100%{opacity:.85;r:2.2}}
+
+#hud{position:fixed;top:16px;left:16px;width:256px;padding:14px;display:none}
+#hud.on{display:block}
+#hud .xy{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;margin:8px 0 12px}
+#hud small{color:var(--dim);font-size:11.5px;display:block}
+.loupe{display:grid;grid-template-columns:repeat(7,1fr);width:84px;height:84px;border-radius:6px;overflow:hidden;border:1px solid var(--line2);flex:none;position:relative}
+.loupe i:nth-child(25){outline:1.5px solid var(--brass);outline-offset:-1.5px;z-index:1}
+
+#pill{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);width:min(440px,92%);padding:14px 16px;display:none;gap:10px;border-radius:12px}
+#pill.on{display:grid;animation:rise .5s var(--spring)}
+@keyframes rise{from{opacity:0;transform:translate(-50%,12px)}}
+.beacon{width:9px;height:9px;border-radius:50%;background:var(--circ);box-shadow:0 0 0 0 var(--circ);animation:b 1.6s infinite;flex:none}
+.beacon.paused{background:var(--brass);animation:none}
+.beacon.rec{background:var(--mad);animation:b2 1.6s infinite}
+@keyframes b{70%{box-shadow:0 0 0 9px #5fb89a00}}
+@keyframes b2{70%{box-shadow:0 0 0 9px #e5484d00}}
+.segbar{display:flex;gap:3px}
+.segbar i{flex:1;height:5px;border-radius:2px;background:var(--raise);position:relative;overflow:hidden}
+.segbar i b{position:absolute;inset:0;background:var(--brass);transform:scaleX(0);transform-origin:left}
+.segbar i.done b{transform:scaleX(1)}
+.segbar i.on b{animation:fill var(--t,1s) linear forwards}
+@keyframes fill{to{transform:scaleX(1)}}
+.hints{font-size:12px;color:var(--dim);gap:14px}
+.reason{font-size:12.5px;color:var(--brass)}
+
+#ghost{position:fixed;left:0;top:0;width:0;height:0;display:none;pointer-events:none}
+#ghost.on{display:block}
+#ghost svg{position:absolute;left:-16px;top:-16px;overflow:visible}
+.ring{position:absolute;left:-16px;top:-16px;width:32px;height:32px;border-radius:50%;border:2px solid var(--brass);animation:ring .6s var(--ease) forwards}
+@keyframes ring{from{transform:scale(.4);opacity:1}to{transform:scale(1.6);opacity:0}}
+
+#toast{position:fixed;left:50%;bottom:150px;transform:translate(-50%,20px);background:var(--bone);color:var(--ink);padding:10px 18px;border-radius:8px;opacity:0;transition:.5s var(--spring);font-weight:500;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="cap">
+  <svg id="cv"><path id="dimp" fill="#060605" fill-opacity=".62" fill-rule="evenodd"/><rect id="dimin" fill="#060605" fill-opacity=".28"/><rect id="winr" fill="none" stroke="#d97757" stroke-opacity=".7" stroke-width="1" stroke-dasharray="4 4"/><text id="winl" class="winlabel"></text><g id="zone"></g><g id="hits"></g></svg>
+  <div class="glass help" id="help">Drag to draw the zone. Enter saves, Esc cancels.</div>
+  <div class="glass read m" id="readout">0, 0</div>
+  <div class="glass pal" id="pal">
+    <div class="row">
+      <div class="seg" id="tools" role="group" aria-label="Zone shape"><button data-k="rect" class="on">Rectangle <kbd>1</kbd></button><button data-k="circle">Circle <kbd>2</kbd></button><button data-k="poly">Polygon <kbd>3</kbd></button><button data-k="point">Point <kbd>4</kbd></button></div>
+      <span class="m" id="dims" style="color:var(--fog);font-size:12.5px"></span>
+    </div>
+    <div class="row">
+      <div class="row start">
+        <select id="act" aria-label="Action"><option value="left">Left click</option><option value="right">Right click</option><option value="middle">Middle click</option><option value="double">Double click</option><option value="hold">Hold</option><option value="move">Move only</option></select>
+        <div class="seg" id="dist" role="group" aria-label="Distribution"><button data-d="gaussian" class="on">Gaussian</button><button data-d="uniform">Uniform</button></div>
+        <label class="check"><input type="checkbox" id="guard"> Wait for this colour</label>
+      </div>
+    </div>
+    <div class="row">
+      <input type="text" id="sname" placeholder="Step name, optional" aria-label="Step name" style="flex:1 1 200px">
+      <div class="row"><button class="btn" id="test">Test hits</button><button class="btn" id="cancel">Cancel <kbd>Esc</kbd></button><button class="btn pri" id="save" disabled>Save step <kbd>↵</kbd></button></div>
+    </div>
+  </div>
+</div>
+
+<div class="glass" id="hud">
+  <div class="row"><b>Telemetry</b><kbd id="hudkey">F9</kbd></div>
+  <div class="xy m"><div><small>Client</small><span id="h-client">-</span></div><div><small>Screen</small><span id="h-screen">0, 0</span></div></div>
+  <div class="row start" style="flex-wrap:nowrap;gap:12px"><div class="loupe" id="loupe"></div>
+    <div class="m" style="font-size:13px;min-width:0"><small>Under pointer</small><span id="h-hex">#000000</span><small style="margin-top:6px">Target</small><span id="h-proc" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px">-</span><small style="margin-top:6px">Focus</small><span id="h-focus">-</span></div></div>
+</div>
+
+<div class="glass" id="pill" role="status">
+  <div class="row"><div class="row start" style="gap:10px"><span class="beacon" id="p-beacon"></span><b id="p-state">Running</b><span style="color:var(--fog)" id="p-pass"></span></div><span class="m" id="p-clock" style="color:var(--fog)">00:00:00</span></div>
+  <div class="segbar" id="p-seg"></div>
+  <div class="row" style="font-size:13px"><span id="p-step"></span><span class="m" style="color:var(--brass)" id="p-next"></span></div>
+  <div class="reason" id="p-reason" hidden></div>
+  <div class="row hints" id="p-hints"></div>
+</div>
+
+<div id="ghost"><svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#d97757" stroke-width="1.6"><circle cx="16" cy="16" r="7"/><path d="M16 2v8M16 22v8M2 16h8M22 16h8"/></svg></div>
+<div id="toast"></div>
+<script src="overlay.js"></script>
+</body>
+</html>

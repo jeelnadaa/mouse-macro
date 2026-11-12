@@ -1,0 +1,177 @@
+name: Build and release
+
+# Every push to main builds Windows, macOS and Linux installers, publishes them
+# as a GitHub release with an auto-incremented version, and writes the
+# latest.json manifest the in-app updater reads.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compute version
+        id: v
+        run: |
+          base=$(jq -r .version src-tauri/tauri.conf.json)
+          major=$(echo "$base" | cut -d. -f1)
+          minor=$(echo "$base" | cut -d. -f2)
+          version="$major.$minor.${{ github.run_number }}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          gh release create "${{ steps.v.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --draft \
+            --title "AetherMacro ${{ steps.v.outputs.version }}" \
+            --notes "$(printf 'Built from %s.\n\n%s' "${{ github.sha }}" "$COMMIT_MSG")"
+
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            key: windows
+            args: "--bundles nsis"
+          - os: macos-latest
+            key: macos
+            args: "--target universal-apple-darwin --bundles app,dmg"
+          - os: ubuntu-22.04
+            key: linux
+            args: "--bundles appimage,deb"
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux system packages
+        if: matrix.key == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxkbcommon-dev libfuse2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.key == 'macos' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: ${{ matrix.key }}
+
+      - name: Stamp version
+        shell: bash
+        run: |
+          node -e "const f='src-tauri/tauri.conf.json',c=require('./'+f);c.version=process.env.VERSION;require('fs').writeFileSync(f,JSON.stringify(c,null,2))"
+          node -e "const fs=require('fs'),f='src-tauri/Cargo.toml';fs.writeFileSync(f,fs.readFileSync(f,'utf8').replace(/^version = \".*\"/m,'version = \"'+process.env.VERSION+'\"'))"
+
+      - run: npm ci
+
+      - name: Unit tests
+        if: matrix.key != 'macos'
+        working-directory: src-tauri
+        run: cargo test --release --lib
+
+      - name: Build
+        run: npx tauri build ${{ matrix.args }}
+
+      - name: Collect installers and updater manifest entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          base="https://github.com/${{ github.repository }}/releases/download/$TAG"
+          pick() { find src-tauri/target -path "*/release/bundle/*" -name "$1" | head -n1; }
+          entry() { # platform-key file-name sig-file
+            printf '"%s":{"url":"%s/%s","signature":"%s"}' "$1" "$base" "$2" "$(cat "$3")"
+          }
+          case "${{ matrix.key }}" in
+            windows)
+              exe=$(pick "*-setup.exe")
+              cp "$exe" "out/AetherMacro_${VERSION}_windows_x64-setup.exe"
+              cp "$exe.sig" "out/AetherMacro_${VERSION}_windows_x64-setup.exe.sig"
+              echo "{$(entry windows-x86_64 "AetherMacro_${VERSION}_windows_x64-setup.exe" "$exe.sig")}" > out/platforms-windows.json
+              ;;
+            macos)
+              tgz=$(pick "*.app.tar.gz")
+              dmg=$(pick "*.dmg")
+              n="AetherMacro_${VERSION}_macos_universal.app.tar.gz"
+              cp "$tgz" "out/$n"; cp "$tgz.sig" "out/$n.sig"
+              cp "$dmg" "out/AetherMacro_${VERSION}_macos_universal.dmg"
+              echo "{$(entry darwin-x86_64 "$n" "$tgz.sig"),$(entry darwin-aarch64 "$n" "$tgz.sig")}" > out/platforms-macos.json
+              ;;
+            linux)
+              img=$(pick "*.AppImage")
+              deb=$(pick "*.deb")
+              n="AetherMacro_${VERSION}_linux_amd64.AppImage"
+              cp "$img" "out/$n"; cp "$img.sig" "out/$n.sig"
+              cp "$deb" "out/AetherMacro_${VERSION}_linux_amd64.deb"
+              echo "{$(entry linux-x86_64 "$n" "$img.sig")}" > out/platforms-linux.json
+              ;;
+          esac
+          ls -la out
+
+      - name: Upload to release
+        shell: bash
+        run: |
+          shopt -s extglob
+          gh release upload "$TAG" out/!(platforms-*.json) --repo "${{ github.repository }}" --clobber
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: platforms-${{ matrix.key }}
+          path: out/platforms-${{ matrix.key }}.json
+          retention-days: 1
+
+  publish:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: platforms-*
+          merge-multiple: true
+      - name: Write latest.json and publish the release
+        run: |
+          set -euo pipefail
+          jq -s --arg v "${{ needs.prepare.outputs.version }}" --arg d "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{version:$v, notes:"See the release page for details.", pub_date:$d, platforms:(add)}' platforms-*.json > latest.json
+          cat latest.json
+          gh release upload "${{ needs.prepare.outputs.tag }}" latest.json --repo "${{ github.repository }}" --clobber
+          gh release edit "${{ needs.prepare.outputs.tag }}" --repo "${{ github.repository }}" --draft=false --latest
