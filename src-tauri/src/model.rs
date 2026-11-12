@@ -252,3 +252,45 @@ impl Default for Guard {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_macro_serialization_and_defaults() {
+        let json_str = r#"{
+            "id": "m-test",
+            "name": "Valorant Buy",
+            "target": { "process": "VALORANT.exe", "title": "VALORANT" },
+            "steps": [
+                {
+                    "name": "Click Phantom",
+                    "action": { "kind": "click", "button": "left", "count": 1 },
+                    "zone": { "shape": "rect", "x": 100.0, "y": 200.0, "w": 50.0, "h": 30.0 },
+                    "delay": { "mean": 450.0, "spread": 20.0 }
+                },
+                {
+                    "name": "Click Shields",
+                    "action": { "kind": "click", "button": "left", "count": 1 },
+                    "zone": { "shape": "point", "x": 350.0, "y": 600.0 },
+                    "delay": { "mean": 1200.0, "spread": 100.0 }
+                }
+            ]
+        }"#;
+
+        let mac: Macro = serde_json::from_str(json_str).expect("Failed to deserialize test macro");
+        assert_eq!(mac.id, "m-test");
+        assert_eq!(mac.name, "Valorant Buy");
+        assert_eq!(mac.target.process, "VALORANT.exe");
+        assert_eq!(mac.steps.len(), 2);
+        assert_eq!(mac.steps[0].zone.as_ref().unwrap().shape, "rect");
+        assert_eq!(mac.steps[0].delay.mean, 450.0);
+        assert_eq!(mac.steps[1].zone.as_ref().unwrap().shape, "point");
+        assert_eq!(mac.steps[1].delay.mean, 1200.0);
+
+        let serialized = serde_json::to_string(&mac).expect("Failed to serialize");
+        let roundtrip: Macro = serde_json::from_str(&serialized).expect("Failed roundtrip");
+        assert_eq!(roundtrip.name, mac.name);
+    }
+}
