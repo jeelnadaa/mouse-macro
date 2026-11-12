@@ -391,8 +391,17 @@ impl<'a> Ctx<'a> {
         loop {
             self.check()?;
             if t.process.is_empty() {
-                if let Some(w) = platform::find_window("", "") {
-                    self.win = w;
+                if self.win.w <= 0 || self.win.h <= 0 {
+                    let (vx, vy, vw, vh) = platform::screen_bounds();
+                    self.win = WinInfo {
+                        id: 0,
+                        process: String::new(),
+                        title: "Whole screen".into(),
+                        x: vx,
+                        y: vy,
+                        w: vw,
+                        h: vh,
+                    };
                 }
                 return Ok(());
             }
@@ -434,7 +443,12 @@ impl<'a> Ctx<'a> {
     }
 
     fn map(&self, x: f64, y: f64) -> (f64, f64) {
-        let (w, h) = (self.win.w as f64, self.win.h as f64);
+        let (w, h) = if self.win.w > 0 && self.win.h > 0 {
+            (self.win.w as f64, self.win.h as f64)
+        } else {
+            let (_, _, vw, vh) = platform::screen_bounds();
+            (vw as f64, vh as f64)
+        };
         let (aw, ah) = self.m.authored.map(|a| (a.w, a.h)).filter(|a| a.0 > 0.0 && a.1 > 0.0).unwrap_or((w, h));
         let (px, py) = match self.m.target.on_resize.as_str() {
             "center" => (x + (w - aw) / 2.0, y + (h - ah) / 2.0),
@@ -798,6 +812,24 @@ fn run_thread(app: AppHandle, sh: Arc<Shared>, req: RunRequest) {
     } else {
         Disp::Real(platform::Input::new())
     };
+    let (vx, vy, vw, vh) = platform::screen_bounds();
+    let mut initial_win = WinInfo {
+        id: 0,
+        process: String::new(),
+        title: "Whole screen".into(),
+        x: vx,
+        y: vy,
+        w: vw,
+        h: vh,
+    };
+    if !req.dry && !m.target.process.is_empty() {
+        if let Some(w) = platform::find_window(&m.target.process, &m.target.title) {
+            platform::focus_window(w.id);
+            initial_win = w;
+            std::thread::sleep(Duration::from_millis(120));
+        }
+    }
+
     let mut ctx = Ctx {
         app: app.clone(),
         sh: &sh,
@@ -805,7 +837,7 @@ fn run_thread(app: AppHandle, sh: Arc<Shared>, req: RunRequest) {
         d,
         rng: Rng::new(),
         dry: req.dry,
-        win: WinInfo::default(),
+        win: initial_win,
         last_set: None,
         last_pts: vec![None; m.steps.len()],
         log: vec![],
@@ -814,15 +846,6 @@ fn run_thread(app: AppHandle, sh: Arc<Shared>, req: RunRequest) {
         corners: platform::screen_bounds(),
         last_poll: Instant::now(),
     };
-
-    // Raise the target before the first dispatch.
-    if !req.dry && !m.target.process.is_empty() {
-        if let Some(w) = platform::find_window(&m.target.process, &m.target.title) {
-            platform::focus_window(w.id);
-            ctx.win = w;
-            std::thread::sleep(Duration::from_millis(120));
-        }
-    }
 
     let first_idx = steps.iter().position(|(i, _)| *i >= req.start).unwrap_or(0);
     let mut next_break = if m.settings.breaks.enabled {

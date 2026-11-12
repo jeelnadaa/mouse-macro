@@ -12,53 +12,53 @@
   <div class="brand"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="color:var(--brass)" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><path d="M12 1v7M12 16v7M1 12h7M16 12h7"/></svg><span style="color:inherit;font-weight:inherit">Aether<span style="margin-left:.18em">macro</span></span></div>
   <nav id="nav" aria-label="Sections">
     <i class="ind"></i>
-    <button data-v="lib">Library</button>
-    <button data-v="seq">Sequence</button>
-    <button data-v="ins">Step inspector</button>
-    <button data-v="rec">Recorder <span class="badge" id="recbadge"></span></button>
-    <button data-v="log">Run log</button>
-    <button data-v="set">Macro settings</button>
-    <button data-v="key">Hotkeys</button>
-    <button data-v="app">App and updates</button>
+    <button data-v="lib" title="View, manage, import and export all saved macros">Library</button>
+    <button data-v="seq" title="View and order the active macro's steps, timing, and execution timeline">Sequence</button>
+    <button data-v="ins" title="Fine-tune selected step actions, click zones, delays, and pixel guards">Step inspector</button>
+    <button data-v="rec" title="Record live mouse movement and keystrokes at 60Hz or 120Hz">Recorder <span class="badge" id="recbadge"></span></button>
+    <button data-v="log" title="Review recent execution history, timing benchmarks, and failsafe telemetry">Run log</button>
+    <button data-v="set" title="Configure target window, loop rules, humanization speed, and pauses">Macro settings</button>
+    <button data-v="key" title="Remap global hotkeys and preview auditory feedback chimes">Hotkeys</button>
+    <button data-v="app" title="Configure overlay preferences, notifications, and updates">App and updates</button>
   </nav>
   <div class="side-bottom">
-    <div class="runmini" id="runmini" hidden><span class="beacon" id="runbeacon"></span><span id="runminitxt">Running</span></div>
-    <div class="upd" id="upd" hidden><span><b id="updv">A new version</b> is ready to install.</span><button class="btn pri sm" id="updbtn">Restart to update</button></div>
-    <button class="prof" id="prof" aria-label="Open macro library"><b id="pn"></b><span id="ps"></span></button>
+    <div class="runmini" id="runmini" hidden title="Active macro execution status"><span class="beacon" id="runbeacon"></span><span id="runminitxt">Running</span></div>
+    <div class="upd" id="upd" hidden><span><b id="updv">A new version</b> is ready to install.</span><button class="btn pri sm" id="updbtn" title="Restart app to apply update">Restart to update</button></div>
+    <button class="prof" id="prof" aria-label="Open macro library" title="Click to view macro library and switch profile"><b id="pn"></b><span id="ps"></span></button>
   </div>
 </aside>
 <main id="main"><div class="wrap">
 
 <section class="view" id="v-lib">
   <div class="top"><div><h1>Library</h1><p class="lede">Every macro you have saved. Each one keeps its own steps, target window and run history, and changes save as you make them.</p></div>
-    <div class="row"><input type="search" id="q" placeholder="Search macros" aria-label="Search macros" style="width:200px"><button class="btn" id="importbtn">Open file</button><button class="btn" id="exportall">Save all as</button><button class="btn pri" id="newm">New macro</button></div></div>
+    <div class="row"><input type="search" id="q" placeholder="Search macros" aria-label="Search macros" title="Filter macros by name or target app" style="width:200px"><button class="btn" id="importbtn" title="Open and import a macro JSON file">Open file</button><button class="btn" id="exportall" title="Export all macros to a backup file">Save all as</button><button class="btn pri" id="newm" title="Create a new empty macro sequence">New macro</button></div></div>
   <ol class="ledger" id="mlist"></ol>
 </section>
 
 <section class="view" id="v-seq">
-  <div class="top"><div><h1 id="mt" contenteditable="plaintext-only" spellcheck="false" title="Click to rename" aria-label="Macro name"></h1><p class="lede" id="ml"></p></div>
+  <div class="top"><div><h1 id="mt" contenteditable="plaintext-only" spellcheck="false" title="Click to rename this macro" aria-label="Macro name"></h1><p class="lede" id="ml"></p></div>
     <div class="row" id="seqactions"></div></div>
   <div class="runbar" id="runbar" hidden></div>
   <div class="facts" id="facts"></div>
-  <h2>One pass</h2><div class="pass" id="pass"></div>
+  <h2>One pass</h2><div class="pass" id="pass" title="Pass timeline: hover a segment to see step duration and delay"></div>
   <ol class="ledger rail" id="ledger"></ol>
 </section>
 
 <section class="view" id="v-ins">
   <div class="top"><div><h1 id="ins-title">Step inspector</h1><p class="lede">Every number a step owns, with its zone and timing drawn as you change them. Edits save as you make them.</p></div>
-    <div class="row"><button class="btn" id="ins-prev">Previous</button><button class="btn" id="ins-next">Next</button><button class="btn pri" id="ins-done">Done <kbd>Esc</kbd></button></div></div>
+    <div class="row"><button class="btn" id="ins-prev" title="Inspect previous step in sequence">Previous</button><button class="btn" id="ins-next" title="Inspect next step in sequence">Next</button><button class="btn pri" id="ins-done" title="Return to Sequence overview (Esc)">Done <kbd>Esc</kbd></button></div></div>
   <div id="ins-body"></div>
 </section>
 
 <section class="view" id="v-rec">
   <div class="top"><div><h1>Recorder</h1><p class="lede">For drags and sweeps where the path matters. Press Ctrl+Shift+R over the app to start and again to stop, then trim the idle edges and smooth the shaky parts.</p></div>
-    <div class="row"><div class="seg" id="hz" role="group" aria-label="Sample rate"><button data-hz="60">60 Hz</button><button data-hz="120">120 Hz</button></div><button class="btn pri" id="recbtn">Record <kbd>Ctrl+Shift+R</kbd></button></div></div>
+    <div class="row"><div class="seg" id="hz" role="group" aria-label="Sample rate" title="Choose mouse tracking sample rate"><button data-hz="60" title="Standard 60 samples/sec">60 Hz</button><button data-hz="120" title="High-precision 120 samples/sec">120 Hz</button></div><button class="btn pri" id="recbtn" title="Toggle recording mode (Ctrl+Shift+R)">Record <kbd>Ctrl+Shift+R</kbd></button></div></div>
   <div id="rec-body"></div>
 </section>
 
 <section class="view" id="v-log">
   <div class="top"><div><h1>Run log</h1><p class="lede">The last 30 runs, with per-step timing, guard results, sampled points and why each run ended.</p></div>
-    <div class="row"><button class="btn" id="logclear">Clear log</button><button class="btn" id="logexport">Export</button></div></div>
+    <div class="row"><button class="btn" id="logclear" title="Clear all recent execution logs">Clear log</button><button class="btn" id="logexport" title="Export execution log history to JSON">Export</button></div></div>
   <div id="log-body"></div>
 </section>
 
@@ -69,7 +69,7 @@
 
 <section class="view" id="v-key">
   <div class="top"><div><h1>Hotkeys</h1><p class="lede">Select a row and press the new combination. Clashes with common game bindings are flagged before they take effect.</p></div>
-    <div class="row"><button class="btn" data-tone="start">Start chime</button><button class="btn" data-tone="stop">Stop chime</button><button class="btn" data-tone="alert">Alert</button></div></div>
+    <div class="row"><button class="btn" data-tone="start" title="Test start audio chime (880 Hz)">Start chime</button><button class="btn" data-tone="stop" title="Test stop audio chime (440 Hz)">Stop chime</button><button class="btn" data-tone="alert" title="Test alert audio chime (220 Hz)">Alert</button></div></div>
   <div class="panel"><table id="kt"></table></div>
   <p class="sub" style="margin-top:14px">Emergency stop keys are only claimed while a macro runs, so the game keeps Esc the rest of the time.</p>
 </section>

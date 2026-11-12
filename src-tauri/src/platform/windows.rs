@@ -97,11 +97,38 @@ unsafe extern "system" fn enum_cb(h: HWND, lp: LPARAM) -> BOOL {
     if IsWindowVisible(h) == 0 || !GetWindow(h, GW_OWNER).is_null() {
         return 1;
     }
-    if !process_name(h).eq_ignore_ascii_case(&ctx.process) {
-        return 1;
-    }
-    if !ctx.title.is_empty() && !title(h).to_lowercase().contains(&ctx.title.to_lowercase()) {
-        return 1;
+    let p_name = process_name(h);
+    let mut matched = false;
+
+    if !ctx.process.is_empty() {
+        let p_target = ctx.process.trim_end_matches(".exe");
+        let p_cur = p_name.trim_end_matches(".exe");
+        if !p_name.is_empty() && (
+            p_cur.eq_ignore_ascii_case(p_target)
+            || p_name.eq_ignore_ascii_case(&ctx.process)
+            || p_cur.to_lowercase().contains(&p_target.to_lowercase())
+        ) {
+            matched = true;
+        }
+        // Fallback: if process_name failed (e.g. anti-cheat blocked OpenProcess),
+        // or if user typed game title as process, check window title!
+        let t = title(h);
+        if !matched && !t.is_empty() {
+            let t_lower = t.to_lowercase();
+            if (!ctx.title.is_empty() && t_lower.contains(&ctx.title.to_lowercase()))
+                || t_lower.contains(&ctx.process.to_lowercase())
+                || t_lower.contains(&p_target.to_lowercase())
+            {
+                matched = true;
+            }
+        }
+        if !matched {
+            return 1;
+        }
+    } else if !ctx.title.is_empty() {
+        if !title(h).to_lowercase().contains(&ctx.title.to_lowercase()) {
+            return 1;
+        }
     }
     let mut rc: RECT = zeroed();
     GetClientRect(h, &mut rc);
@@ -118,6 +145,18 @@ unsafe extern "system" fn enum_cb(h: HWND, lp: LPARAM) -> BOOL {
 /// Match by process name first, title second, so a title change mid-session
 /// does not break a run.
 pub fn find_window(process: &str, title_match: &str) -> Option<WinInfo> {
+    if process.is_empty() && title_match.is_empty() {
+        let (vx, vy, vw, vh) = screen_bounds();
+        return Some(WinInfo {
+            id: 0,
+            process: String::new(),
+            title: "Whole screen".into(),
+            x: vx,
+            y: vy,
+            w: vw,
+            h: vh,
+        });
+    }
     let mut ctx = FindCtx { process: process.to_string(), title: title_match.to_string(), best: None };
     unsafe {
         EnumWindows(Some(enum_cb), &mut ctx as *mut FindCtx as LPARAM);
@@ -313,6 +352,9 @@ impl Input {
     }
 
     pub fn move_to(&mut self, x: i32, y: i32) {
+        unsafe {
+            SetCursorPos(x, y);
+        }
         let (vx, vy, vw, vh) = screen_bounds();
         let nx = (((x - vx) as i64 * 65535) / (vw - 1).max(1) as i64) as i32;
         let ny = (((y - vy) as i64 * 65535) / (vh - 1).max(1) as i64) as i32;

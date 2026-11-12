@@ -203,6 +203,7 @@ function zoneLabel(z) {
 function stepSub(s) {
   const parts = [actLabel(s)];
   if (s.zone && s.action.kind !== 'path') parts.push(zoneLabel(s.zone));
+  if (s.delay) parts.push(`delay ${round(s.delay.mean)}ms`);
   if (s.guard?.samples?.length) parts.push('guarded');
   if (!s.enabled) parts.push('disabled');
   return parts.join(', ');
@@ -262,12 +263,12 @@ function renderLib() {
   $('#mlist').innerHTML = L.length ? L.map((m, i) => {
     const on = m.steps.filter(s => s.enabled), tot = on.reduce((a, s) => a + est(s), 0);
     const running = RUN.state !== 'idle' && RUN.macro_id === m.id;
-    return `<li class="${m.id === DB.active ? 'cur' : ''}" style="--i:${i}">
+    return `<li class="${m.id === DB.active ? 'cur' : ''}" style="--i:${i}" title="${esc(m.name)}: ${pl(m.steps.length, 'step')}. Click to open.">
       <div class="st"><b>${esc(m.name)}</b><span>${esc(m.target.process || 'Whole screen')}, ${pl(m.steps.length, 'step')}. ${running ? 'Running now' : ago(m.last_run)}${m.file ? '. ' + esc(baseOf(m.file)) : ''}</span></div>
-      <div class="mini" aria-hidden="true">${on.map(s => `<i style="flex:${est(s)};background:${colorOf(s)}"></i>`).join('') || '<i style="flex:1;background:var(--deep)"></i>'}</div>
-      <span class="m time">${tot ? fmt(tot) : 'Empty'}</span>
-      <div class="row" style="flex-wrap:nowrap;gap:6px"><button class="btn sm" data-a="open" data-id="${m.id}">${m.id === DB.active ? 'Open now' : 'Open'}</button>
-      <div class="rowact"><button data-a="dup" data-id="${m.id}">Duplicate</button><button data-a="export" data-id="${m.id}">Save as</button><button class="del" data-a="del" data-id="${m.id}">Delete</button></div></div></li>`;
+      <div class="mini" aria-hidden="true">${on.map(s => `<i style="flex:${est(s)};background:${colorOf(s)}" title="${esc(s.name)} (${round(s.delay.mean)}ms delay)"></i>`).join('') || '<i style="flex:1;background:var(--deep)"></i>'}</div>
+      <span class="m time" title="Estimated pass time">${tot ? fmt(tot) : 'Empty'}</span>
+      <div class="row" style="flex-wrap:nowrap;gap:6px"><button class="btn sm" data-a="open" data-id="${m.id}" title="Open this macro in editor">${m.id === DB.active ? 'Open now' : 'Open'}</button>
+      <div class="rowact"><button data-a="dup" data-id="${m.id}" title="Duplicate this macro">Duplicate</button><button data-a="export" data-id="${m.id}" title="Export macro to a JSON file">Save as</button><button class="del" data-a="del" data-id="${m.id}" title="Delete this macro permanently">Delete</button></div></div></li>`;
   }).join('') : `<li class="empty"><span>No macros match that search.</span></li>`;
 }
 $('#q').oninput = renderLib;
@@ -349,26 +350,35 @@ function renderSeq() {
   const here = isRunningHere(), other = RUN.state !== 'idle' && !here;
   const k = id => esc(PREFS.hotkeys[id] || '');
   $('#seqactions').innerHTML = here
-    ? `<button class="btn mad" data-act="stop">Stop <kbd>${k('stop')}</kbd></button>${RUN.state === 'paused'
-      ? `<button class="btn" data-act="step">Next step <kbd>${k('step')}</kbd></button><button class="btn pri" data-act="resume">Resume <kbd>${k('start')}</kbd></button>`
-      : `<button class="btn pri" data-act="pause">Pause <kbd>${k('pause')}</kbd></button>`}`
-    : `<button class="btn" data-act="save" title="${m.file ? 'Save to ' + esc(m.file) : 'Choose a file name and folder'}">Save <kbd>Ctrl+S</kbd></button><button class="btn" data-act="saveas">Save as</button><button class="btn" data-act="capture">Capture step <kbd>${k('capture')}</kbd></button><button class="btn" data-act="dry">Dry run</button><button class="btn" data-act="stepmode">Step through <kbd>${k('step')}</kbd></button><button class="btn pri" data-act="run" ${other ? 'disabled title="Another macro is running"' : ''}>Run <kbd>${k('start')}</kbd></button>`;
+    ? `<button class="btn mad" data-act="stop" title="Emergency stop the running macro (${k('stop')})">Stop <kbd>${k('stop')}</kbd></button>${RUN.state === 'paused'
+      ? `<button class="btn" data-act="step" title="Advance one step only and pause (${k('step')})">Next step <kbd>${k('step')}</kbd></button><button class="btn pri" data-act="resume" title="Resume macro sequence (${k('start')})">Resume <kbd>${k('start')}</kbd></button>`
+      : `<button class="btn pri" data-act="pause" title="Pause macro execution (${k('pause')})">Pause <kbd>${k('pause')}</kbd></button>`}`
+    : `<button class="btn" data-act="save" title="${m.file ? 'Save changes to ' + esc(m.file) : 'Save macro to a file (Ctrl+S)'}">Save <kbd>Ctrl+S</kbd></button><button class="btn" data-act="saveas" title="Save a copy of this macro with a new name">Save as</button><button class="btn" data-act="capture" title="Open overlay over target app to draw a zone and add a step (${k('capture')})">Capture step <kbd>${k('capture')}</kbd></button><button class="btn" data-act="dry" title="Simulate this sequence without sending physical clicks">Dry run</button><button class="btn" data-act="stepmode" title="Step through sequence with manual advance (${k('step')})">Step through <kbd>${k('step')}</kbd></button><button class="btn pri" data-act="run" ${other ? 'disabled title="Another macro is running"' : 'title="Run active macro on target window (' + k('start') + ')"'}>Run <kbd>${k('start')}</kbd></button>`;
   renderRunbar();
   renderFacts(m);
   const pass = $('#pass');
   if (on.length) {
     pass.className = 'pass' + (here ? '' : ' idle');
-    pass.innerHTML = on.map(s => `<i style="flex:${est(s)}" title="${esc(s.name)}, ${fmt(est(s))}"><b style="background:${colorOf(s)}"></b></i>`).join('');
+    pass.innerHTML = on.map(s => `<i style="flex:${est(s)}" title="${esc(s.name)}, ${fmt(est(s))} total (delay: ${round(s.delay.mean)}ms)"><b style="background:${colorOf(s)}"></b></i>`).join('');
   } else { pass.className = 'pass-empty'; pass.innerHTML = ''; }
   const led = $('#ledger');
   led.classList.toggle('anim', firstSeq && S.length > 0);
   firstSeq = false;
-  led.innerHTML = S.length ? S.map((s, i) => `<li tabindex="0" draggable="true" data-i="${i}" class="${i === sel ? 'sel' : ''} ${s.enabled ? '' : 'off'}" style="--i:${i};--c:${colorOf(s)}">
-      <span class="node" aria-hidden="true">${i + 1}</span>
-      <div class="st"><b>${esc(s.name)}</b><span>${esc(stepSub(s))}</span></div>
+  led.innerHTML = S.length ? S.map((s, i) => `<li tabindex="0" draggable="true" data-i="${i}" class="${i === sel ? 'sel' : ''} ${s.enabled ? '' : 'off'}" style="--i:${i};--c:${colorOf(s)}" title="Step ${i + 1}: ${esc(s.name)}. Drag to reorder, double-click to edit in Inspector.">
+      <span class="node" aria-hidden="true" title="Step ${i + 1} (drag to reorder)">${i + 1}</span>
+      <div class="st">
+        <b>${esc(s.name)}<span class="delay-pill" title="Delay after this step before the next step runs: ${round(s.delay.mean)} ms (±${round(s.delay.spread)} ms)">⏱ ${round(s.delay.mean)} ms</span></b>
+        <span>${esc(stepSub(s))}</span>
+      </div>
       ${thumb(s)}
-      <div class="row" style="flex-wrap:nowrap;gap:12px"><span class="m time">${fmt(est(s))}</span>
-      <div class="rowact"><button data-a="edit">Edit</button><button data-a="here">Run from here</button><button data-a="dup">Duplicate</button><button data-a="toggle">${s.enabled ? 'Disable' : 'Enable'}</button><button class="del" data-a="del">Delete</button></div></div></li>`).join('')
+      <div class="row" style="flex-wrap:nowrap;gap:12px"><span class="m time" title="Estimated total step duration including hold and delay">${fmt(est(s))}</span>
+      <div class="rowact">
+        <button data-a="edit" title="Edit step action, coordinates, zone, and delay in Inspector">Edit</button>
+        <button data-a="here" title="Start running macro starting directly from Step ${i + 1}">Run from here</button>
+        <button data-a="dup" title="Duplicate this step">Duplicate</button>
+        <button data-a="toggle" title="${s.enabled ? 'Disable this step without deleting it' : 'Enable this step'}">${s.enabled ? 'Disable' : 'Enable'}</button>
+        <button class="del" data-a="del" title="Delete this step from the macro">Delete</button>
+      </div></div></li>`).join('')
     : `<li class="empty"><span>No steps yet. Press ${k('capture')} over the app to capture the first one, or ${k('quick')} to drop a click where the pointer is.</span><button class="btn pri" data-act="capture">Capture step</button></li>`;
   markRunning();
 }
@@ -407,10 +417,10 @@ function renderFacts(m) {
     if (!w) chip = `<span class="chip">Not open right now</span>`;
     else if (m.authored && (Math.abs(w.w - m.authored.w) > 1 || Math.abs(w.h - m.authored.h) > 1)) chip = `<span class="chip">${w.w}×${w.h} now, authored at ${m.authored.w}×${m.authored.h}</span>`;
   }
-  $('#facts').innerHTML = `<button data-go="set"><dt>Target window</dt><dd>${esc(t.process || 'Whole screen')}</dd>${chip}</button>
-    <button data-go="set"><dt>Loop policy</dt><dd>${esc(loop)}</dd></button>
-    <button data-go="set"><dt>Humanization</dt><dd>${esc(hum)}</dd></button>
-    <button data-go="set"><dt>Focus policy</dt><dd>${esc(focus)}</dd></button>`;
+  $('#facts').innerHTML = `<button data-go="set" title="Click to configure target process name and window title"><dt>Target window</dt><dd>${esc(t.process || 'Whole screen')}</dd>${chip}</button>
+    <button data-go="set" title="Click to adjust continuous loop, pass count limit, or run duration"><dt>Loop policy</dt><dd>${esc(loop)}</dd></button>
+    <button data-go="set" title="Click to configure mouse trajectory, curvature, overshoot and speed"><dt>Humanization</dt><dd>${esc(hum)}</dd></button>
+    <button data-go="set" title="Click to configure focus requirements and auto-pause behavior"><dt>Focus policy</dt><dd>${esc(focus)}</dd></button>`;
 }
 $('#facts').onclick = e => { if (e.target.closest('[data-go]')) go('set'); };
 async function refreshWin() {
@@ -700,25 +710,32 @@ function renderIns() {
       ${showHold ? `<div class="field"><span class="lab">${holdLabel} <span class="m" id="i-holdv">${round(s.hold.min)} to ${round(s.hold.max)} ms</span></span><div class="inline"><input type="number" id="i-hmin" value="${round(s.hold.min)}" min="0" aria-label="Minimum ms"><input type="number" id="i-hmax" value="${round(s.hold.max)}" min="0" aria-label="Maximum ms"></div></div>` : ''}
       <hr class="rule">
       <h3 class="section-title">Delay after the step</h3>
-      <div class="field">${seg('ddist', DIST, s.delay.dist)}</div>
-      <div class="field"><label for="d-mean">Mean <span class="m" id="d-meanv">${round(s.delay.mean)} ms</span></label><input type="range" id="d-mean" min="0" max="5000" step="10" value="${s.delay.mean}"></div>
-      ${s.delay.dist !== 'fixed' ? `<div class="field"><label for="d-spread">${s.delay.dist === 'gaussian' ? 'Spread, σ' : 'Spread, ±'} <span class="m" id="d-spreadv">${round(s.delay.spread)} ms</span></label><input type="range" id="d-spread" min="0" max="1000" step="5" value="${s.delay.spread}"></div>` : ''}
+      <div class="field" title="Select delay distribution profile">${seg('ddist', DIST, s.delay.dist)}</div>
+      <div class="field"><label for="d-mean" title="Average delay in milliseconds after this step before the next step runs">Mean delay <span class="m" id="d-meanv">${round(s.delay.mean)} ms</span></label><input type="range" id="d-mean" min="0" max="5000" step="10" value="${s.delay.mean}" title="Drag to adjust mean delay (0 - 5000 ms)"></div>
+      <div class="delay-preset" style="margin-bottom:14px">
+        <button type="button" data-preset="50" title="50ms: Instant / rapid fire">50ms (Instant)</button>
+        <button type="button" data-preset="200" title="200ms: Fast responsive delay">200ms (Fast)</button>
+        <button type="button" data-preset="600" title="600ms: Natural human pace">600ms (Normal)</button>
+        <button type="button" data-preset="1200" title="1200ms: Safe deliberate delay">1200ms (Safe)</button>
+        <button type="button" data-preset="2500" title="2500ms: Long pause for UI transitions">2500ms (Long)</button>
+      </div>
+      ${s.delay.dist !== 'fixed' ? `<div class="field"><label for="d-spread" title="Random timing variance to simulate natural human hesitation">${s.delay.dist === 'gaussian' ? 'Spread, σ' : 'Spread, ±'} <span class="m" id="d-spreadv">${round(s.delay.spread)} ms</span></label><input type="range" id="d-spread" min="0" max="1000" step="5" value="${s.delay.spread}" title="Random timing jitter to prevent bot detection"></div>` : ''}
       <hr class="rule">
       <h3 class="section-title">Zone</h3>
-      <div class="field">${seg('shape', SHAPES, shape)}</div>
+      <div class="field" title="Click target shape: Rectangle box, Circular radius, Freehand polygon, or Single exact point">${seg('shape', SHAPES, shape)}</div>
       ${zf}
-      ${a.kind !== 'wait' ? `<button class="btn" id="z-redraw" type="button" style="margin-bottom:18px">Redraw over the app</button>` : ''}
+      ${a.kind !== 'wait' ? `<button class="btn" id="z-redraw" type="button" style="margin-bottom:18px" title="Open the in-situ overlay to redraw or reposition this shape over the target app">Redraw over the app</button>` : ''}
       <hr class="rule">
       <h3 class="section-title">Visual guard</h3>
-      <label class="check" style="margin-bottom:14px"><input type="checkbox" id="g-on-off" ${guardOn ? 'checked' : ''}> Wait for a colour before acting</label>
+      <label class="check" style="margin-bottom:14px" title="Wait until pixel at target location matches expected hex color"><input type="checkbox" id="g-on-off" ${guardOn ? 'checked' : ''}> Wait for a colour before acting</label>
       ${gf}
     </div>
     <div class="preview">
-      <div class="zonebox"><svg viewBox="0 0 400 240" id="zprev" aria-label="Zone preview"></svg></div>
-      <div class="row" style="margin:10px 0 24px"><span class="sub" id="zinfo"></span><button class="btn sm" id="z-test" type="button" ${z && z.shape !== 'point' ? '' : 'disabled'}>Test hits</button></div>
-      <svg viewBox="0 0 400 170" id="dprev" aria-label="Delay distribution"><path id="d-area" fill="#d9775726"/><path id="d-curve" fill="none" stroke="#d97757" stroke-width="2"/><path d="M0 140H400" stroke="rgba(250,249,245,.22)"/><g id="d-clamp" stroke="#6f6d66" stroke-dasharray="3 4"></g><text id="d-tmin" x="8" y="162" fill="#a8a69c" font-size="11" font-family="JetBrains Mono"></text><text id="d-tmax" x="392" y="162" fill="#a8a69c" font-size="11" text-anchor="end" font-family="JetBrains Mono"></text></svg>
+      <div class="zonebox"><svg viewBox="0 0 400 240" id="zprev" aria-label="Zone preview" title="Visual diagram of the target zone geometry"></svg></div>
+      <div class="row" style="margin:10px 0 24px"><span class="sub" id="zinfo"></span><button class="btn sm" id="z-test" type="button" ${z && z.shape !== 'point' ? '' : 'disabled'} title="Simulate 35 random hit coordinates inside this zone">Test hits</button></div>
+      <svg viewBox="0 0 400 170" id="dprev" aria-label="Delay distribution" title="Delay probability density curve"><path id="d-area" fill="#d9775726"/><path id="d-curve" fill="none" stroke="#d97757" stroke-width="2"/><path d="M0 140H400" stroke="rgba(250,249,245,.22)"/><g id="d-clamp" stroke="#6f6d66" stroke-dasharray="3 4"></g><text id="d-tmin" x="8" y="162" fill="#a8a69c" font-size="11" font-family="JetBrains Mono"></text><text id="d-tmax" x="392" y="162" fill="#a8a69c" font-size="11" text-anchor="end" font-family="JetBrains Mono"></text></svg>
       <p class="sub" id="d-note"></p>
-      <div class="row end" style="margin-top:26px"><button class="btn" id="i-test" type="button">Run only this step</button></div>
+      <div class="row end" style="margin-top:26px"><button class="btn" id="i-test" type="button" title="Execute only this step on the target application to test positioning">Run only this step</button></div>
     </div></div>`;
   drawZonePreview(); drawDist();
 }
@@ -800,6 +817,16 @@ function setAction(s, v) {
 }
 $('#ins-body').addEventListener('click', async e => {
   const s = insStep(); if (!s) return;
+  const pb = e.target.closest('button[data-preset]');
+  if (pb) {
+    const val = parseFloat(pb.dataset.preset);
+    mut(() => {
+      s.delay.mean = val;
+      if (s.delay.dist !== 'fixed') s.delay.spread = Math.round(val * 0.15);
+    }, `Delay set to ${val}ms`);
+    renderIns();
+    return;
+  }
   const sg = e.target.closest('[data-seg] button');
   if (sg) {
     const which = sg.parentElement.dataset.seg, v = sg.dataset.v;
@@ -1045,25 +1072,25 @@ function renderSet() {
   $('#set-body').innerHTML = `<div class="panel">
     <h2 class="section-title">Target window</h2>
     <div class="row" style="margin-bottom:18px"><div class="st"><b>${esc(t.process || 'Whole screen')}</b><span>${t.process ? esc(t.title ? 'Title contains “' + t.title + '”' : 'Any window of this app') : 'Coordinates are relative to the main display'}${m.authored ? `. Captured at ${m.authored.w}×${m.authored.h}` : ''}${w ? `, ${w.w}×${w.h} now` : t.process && winCache.key === t.process ? ', not open right now' : ''}.</span></div>
-      <div class="row">${t.process ? '<button class="btn" id="s-screen">Use whole screen</button>' : ''}<button class="btn pri" id="s-pick">Choose a window</button></div></div>
-    ${t.process ? `<div class="field"><label for="s-title">Title must contain <span class="hint">optional, process name is matched first</span></label><input type="text" id="s-title" value="${esc(t.title)}"></div>
-    <label class="check" style="margin-bottom:14px"><input type="checkbox" id="s-focus" ${t.require_focus ? 'checked' : ''}> Only act while the target is in front, and pause while it is minimized</label>` : ''}
+      <div class="row">${t.process ? '<button class="btn" id="s-screen" title="Detach from target app and map coordinates to the entire primary screen">Use whole screen</button>' : ''}<button class="btn pri" id="s-pick" title="Open window selector to bind macro to a running application">Choose a window</button></div></div>
+    ${t.process ? `<div class="field"><label for="s-title">Title must contain <span class="hint">optional, process name is matched first</span></label><input type="text" id="s-title" value="${esc(t.title)}" title="Filter windows by title substring (optional)"></div>
+    <label class="check" style="margin-bottom:14px" title="Pause macro when target window loses focus or is minimized"><input type="checkbox" id="s-focus" ${t.require_focus ? 'checked' : ''}> Only act while the target is in front, and pause while it is minimized</label>` : ''}
     <div class="field"><span class="lab">If the window size changes</span>${seg('resize', [['scale', 'Scale zones'], ['top_left', 'Anchor top-left'], ['center', 'Anchor centre']], t.on_resize)}</div>
-    ${w && m.authored && (w.w !== m.authored.w || w.h !== m.authored.h) ? `<button class="btn" id="s-reauth">Treat ${w.w}×${w.h} as the captured size</button>` : ''}
+    ${w && m.authored && (w.w !== m.authored.w || w.h !== m.authored.h) ? `<button class="btn" id="s-reauth" title="Update authored resolution to current window dimensions">Treat ${w.w}×${w.h} as the captured size</button>` : ''}
   </div>
   <div class="panel"><h2 class="section-title">Loop policy</h2>
     <div class="field">${seg('loop', [['infinite', 'Continuous'], ['count', 'Number of passes'], ['duration', 'For a time']], s.loop_mode)}</div>
-    ${s.loop_mode === 'count' ? nfield('s-count', 'Passes', s.loop_count, 'min="1"') : ''}
-    ${s.loop_mode === 'duration' ? nfield('s-dur', 'Minutes', s.duration_min, 'min="0.1" step="0.5"') : ''}
-    <label class="check" style="margin-bottom:14px"><input type="checkbox" id="s-breaks" ${b.enabled ? 'checked' : ''}> Take micro-breaks</label>
-    ${b.enabled ? `<div class="inline">${nfield('s-emin', 'Every, from passes', b.every_min, 'min="1"')}${nfield('s-emax', 'to passes', b.every_max, 'min="1"')}${nfield('s-pmin', 'Pause from, s', b.pause_min / 1000, 'min="0" step="0.5"')}${nfield('s-pmax', 'to, s', b.pause_max / 1000, 'min="0" step="0.5"')}</div>` : ''}
+    ${s.loop_mode === 'count' ? nfield('s-count', 'Passes', s.loop_count, 'min="1" title="Total number of macro passes to complete"') : ''}
+    ${s.loop_mode === 'duration' ? nfield('s-dur', 'Minutes', s.duration_min, 'min="0.1" step="0.5" title="Run duration in minutes"') : ''}
+    <label class="check" style="margin-bottom:14px" title="Periodically pause execution to simulate natural human rest breaks"><input type="checkbox" id="s-breaks" ${b.enabled ? 'checked' : ''}> Take micro-breaks</label>
+    ${b.enabled ? `<div class="inline">${nfield('s-emin', 'Every, from passes', b.every_min, 'min="1" title="Minimum passes between breaks"')}${nfield('s-emax', 'to passes', b.every_max, 'min="1" title="Maximum passes between breaks"')}${nfield('s-pmin', 'Pause from, s', b.pause_min / 1000, 'min="0" step="0.5" title="Minimum pause length in seconds"')}${nfield('s-pmax', 'to, s', b.pause_max / 1000, 'min="0" step="0.5" title="Maximum pause length in seconds"')}</div>` : ''}
   </div>
   <div class="panel"><h2 class="section-title">Humanization</h2>
     <div class="field"><span class="lab">Pointer path</span>${seg('traj', [['bezier', 'Bézier curve'], ['teleport', 'Teleport']], s.trajectory)}</div>
-    ${s.trajectory === 'bezier' ? `<div class="two"><div class="field"><label for="s-speed">Speed <span class="m" id="s-speedv">${s.speed}×</span></label><input type="range" id="s-speed" min="0.3" max="3" step="0.1" value="${s.speed}"></div>
-    <div class="field"><label for="s-curve">Curvature <span class="m" id="s-curvev">${Math.round(s.curvature * 100)}%</span></label><input type="range" id="s-curve" min="0" max="1" step="0.05" value="${s.curvature}"></div></div>
-    <label class="check" style="margin-bottom:10px"><input type="checkbox" id="s-over" ${s.overshoot ? 'checked' : ''}> Sometimes overshoot long moves and correct</label>` : ''}
-    <label class="check"><input type="checkbox" id="s-user" ${s.user_override ? 'checked' : ''}> Pause when I move the mouse</label>
+    ${s.trajectory === 'bezier' ? `<div class="two"><div class="field"><label for="s-speed">Speed <span class="m" id="s-speedv">${s.speed}×</span></label><input type="range" id="s-speed" min="0.3" max="3" step="0.1" value="${s.speed}" title="Speed multiplier for mouse movement interpolation"></div>
+    <div class="field"><label for="s-curve">Curvature <span class="m" id="s-curvev">${Math.round(s.curvature * 100)}%</span></label><input type="range" id="s-curve" min="0" max="1" step="0.05" value="${s.curvature}" title="Curvature degree for smooth Bezier mouse trajectories"></div></div>
+    <label class="check" style="margin-bottom:10px" title="Simulate natural mouse overshoot and slight settling correction"><input type="checkbox" id="s-over" ${s.overshoot ? 'checked' : ''}> Sometimes overshoot long moves and correct</label>` : ''}
+    <label class="check" title="Pause macro if physical mouse movement is detected (turn off for raw input games)"><input type="checkbox" id="s-user" ${s.user_override ? 'checked' : ''}> Pause when I move the mouse</label>
     <p class="sub" style="margin:4px 0 0 26px">Turn this off for games that lock the pointer to the centre of the screen, which looks like movement.</p>
   </div>`;
 }
@@ -1147,8 +1174,8 @@ function renderKeys() {
     const note = r && !r.ok ? 'Another app already uses this, pick something else' : dup || (CONFLICTS[v] ? 'Clashes with: ' + CONFLICTS[v] : '');
     const lis = listening?.kind === 'hk' && listening.id === id;
     return `<tr class="${note ? 'warn' : ''} ${lis ? 'listen' : ''}"><td>${label}</td><td>${v ? v.split('+').map(k => `<kbd>${esc(k)}</kbd>`).join(' ') : '<span class="dimtxt">Not set</span>'}</td><td class="cf">${esc(note)}</td>
-      <td><div class="row end" style="flex-wrap:nowrap">${v && !id.startsWith('stop') ? `<button class="btn sm" data-clear="${id}">Clear</button>` : ''}<button class="btn sm" data-hk="${id}">${lis ? 'Press keys' : 'Rebind'}</button></div></td></tr>`;
-  }).join('') + `<tr><td colspan="4" style="text-align:left"><button class="lnk" id="hk-reset">Restore defaults</button></td></tr>`;
+      <td><div class="row end" style="flex-wrap:nowrap">${v && !id.startsWith('stop') ? `<button class="btn sm" data-clear="${id}" title="Clear this hotkey">Clear</button>` : ''}<button class="btn sm" data-hk="${id}" title="Assign a new key or combination">${lis ? 'Press keys' : 'Rebind'}</button></div></td></tr>`;
+  }).join('') + `<tr><td colspan="4" style="text-align:left"><button class="lnk" id="hk-reset" title="Reset all hotkeys back to standard defaults">Restore defaults</button></td></tr>`;
 }
 $('#kt').addEventListener('click', e => {
   const b = e.target.closest('[data-hk]'), c = e.target.closest('[data-clear]');
@@ -1169,19 +1196,19 @@ const pillOn = () => { try { return localStorage.getItem(PILL_KEY) !== '0'; } ca
 function renderApp() {
   $('#app-body').innerHTML = `<div class="panel"><h2 class="section-title">Overlay</h2>
       <p class="sub" style="margin-bottom:14px">The overlay floats above games running in borderless or windowed fullscreen. Exclusive fullscreen hides every overlay, so switch the game to borderless if you cannot see it.</p>
-      <label class="check"><input type="checkbox" id="a-pill" ${pillOn() ? 'checked' : ''}> Show the status pill while a macro runs <kbd>${esc(PREFS.hotkeys.pill || '')}</kbd></label>
-      <div class="row start" style="margin-top:12px"><button class="btn" id="a-hud">Toggle telemetry now <kbd>${esc(PREFS.hotkeys.hud || '')}</kbd></button></div></div>
+      <label class="check" title="Display floating HUD status pill during macro playback"><input type="checkbox" id="a-pill" ${pillOn() ? 'checked' : ''}> Show the status pill while a macro runs <kbd>${esc(PREFS.hotkeys.pill || '')}</kbd></label>
+      <div class="row start" style="margin-top:12px"><button class="btn" id="a-hud" title="Immediately show or hide the floating telemetry HUD">Toggle telemetry now <kbd>${esc(PREFS.hotkeys.hud || '')}</kbd></button></div></div>
     <div class="panel"><h2 class="section-title">Sound</h2>
-      <label class="check" style="margin-bottom:12px"><input type="checkbox" id="a-mute" ${PREFS.muted ? 'checked' : ''}> Mute audio cues</label>
-      <div class="field"><label for="a-vol">Volume <span class="m" id="a-volv">${Math.round(PREFS.volume * 100)}%</span></label><input type="range" id="a-vol" min="0" max="1" step="0.05" value="${PREFS.volume}"></div>
-      <div class="row start"><button class="btn sm" data-tone="start">Start, 880 Hz</button><button class="btn sm" data-tone="pause">Pause, double beep</button><button class="btn sm" data-tone="stop">Stop, 440 Hz</button><button class="btn sm" data-tone="alert">Alert, 220 Hz</button></div></div>
+      <label class="check" style="margin-bottom:12px" title="Silence all audio cues and tones"><input type="checkbox" id="a-mute" ${PREFS.muted ? 'checked' : ''}> Mute audio cues</label>
+      <div class="field"><label for="a-vol">Volume <span class="m" id="a-volv">${Math.round(PREFS.volume * 100)}%</span></label><input type="range" id="a-vol" min="0" max="1" step="0.05" value="${PREFS.volume}" title="Adjust volume for audio feedback cues"></div>
+      <div class="row start"><button class="btn sm" data-tone="start" title="Preview start audio tone (880 Hz)">Start, 880 Hz</button><button class="btn sm" data-tone="pause" title="Preview pause audio tone (double beep)">Pause, double beep</button><button class="btn sm" data-tone="stop" title="Preview stop audio tone (440 Hz)">Stop, 440 Hz</button><button class="btn sm" data-tone="alert" title="Preview alert audio tone (220 Hz)">Alert, 220 Hz</button></div></div>
     <div class="panel"><h2 class="section-title">Updates</h2>
       <div class="row"><div class="st"><b>Version <span class="m">${esc(APPINFO.version)}</span></b><span id="a-updtxt">${UPDATE ? `Version ${esc(UPDATE.version)} is ready to install.` : 'AetherMacro checks GitHub for new releases each time it starts.'}</span></div>
-      <div class="row">${UPDATE ? '<button class="btn pri" id="a-install">Restart to update</button>' : '<button class="btn" id="a-check">Check for updates</button>'}</div></div></div>
+      <div class="row">${UPDATE ? '<button class="btn pri" id="a-install" title="Download and restart AetherMacro with update">Restart to update</button>' : '<button class="btn" id="a-check" title="Query GitHub releases API for newer AetherMacro versions">Check for updates</button>'}</div></div></div>
     <div class="panel"><h2 class="section-title">Saving</h2>
       <p class="sub" style="margin-bottom:14px">Save as asks for a file name and folder, starting in the default folder. After that, Ctrl+S writes straight back to the same file, and Ctrl+Shift+S picks a new one.</p>
       <div class="row"><div class="st" style="min-width:0;flex:1 1 260px"><b>Default folder</b><span class="m" style="user-select:text;overflow-wrap:anywhere;white-space:normal">${esc(PREFS.save_dir || DEFAULT_DIR)}</span></div>
-      <div class="row">${PREFS.save_dir ? '<button class="btn" id="a-resetdir">Use Documents</button>' : ''}<button class="btn" id="a-opendlg">Open macro file</button><button class="btn pri" id="a-pickdir">Change folder</button></div></div>
+      <div class="row">${PREFS.save_dir ? '<button class="btn" id="a-resetdir" title="Reset default storage directory back to user Documents folder">Use Documents</button>' : ''}<button class="btn" id="a-opendlg" title="Open an existing macro .json file from disk">Open macro file</button><button class="btn pri" id="a-pickdir" title="Choose a custom directory for saving macro files">Change folder</button></div></div>
       <hr class="rule"><p class="sub">Every change is also kept automatically in the app's own library, one file per macro, so a damaged file never affects the others.</p><p class="m sub" style="margin-top:8px;user-select:text;overflow-wrap:anywhere">${esc(DATA_DIR)}</p></div>`;
 }
 $('#app-body').addEventListener('input', e => {

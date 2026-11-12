@@ -78,19 +78,43 @@ input[type=checkbox]{accent-color:var(--brass);width:15px;height:15px}
   <div class="glass read m" id="readout">0, 0</div>
   <div class="glass pal" id="pal">
     <div class="row">
-      <div class="seg" id="tools" role="group" aria-label="Zone shape"><button data-k="rect" class="on">Rectangle <kbd>1</kbd></button><button data-k="circle">Circle <kbd>2</kbd></button><button data-k="poly">Polygon <kbd>3</kbd></button><button data-k="point">Point <kbd>4</kbd></button></div>
-      <span class="m" id="dims" style="color:var(--fog);font-size:12.5px"></span>
+      <div class="seg" id="tools" role="group" aria-label="Zone shape">
+        <button data-k="rect" class="on" title="Rectangle Zone (1): Drag a box over the target area">Rectangle <kbd>1</kbd></button>
+        <button data-k="circle" title="Circle Zone (2): Drag from centre to set a circular hit area">Circle <kbd>2</kbd></button>
+        <button data-k="poly" title="Polygon Zone (3): Click points to draw an arbitrary polygon outline">Polygon <kbd>3</kbd></button>
+        <button data-k="point" title="Exact Point (4): Single pixel position, zero random spread">Point <kbd>4</kbd></button>
+      </div>
+      <span class="m" id="dims" style="color:var(--fog);font-size:12.5px" title="Selected zone dimensions"></span>
     </div>
     <div class="row">
       <div class="row start">
-        <select id="act" aria-label="Action"><option value="left">Left click</option><option value="right">Right click</option><option value="middle">Middle click</option><option value="double">Double click</option><option value="hold">Hold</option><option value="move">Move only</option></select>
-        <div class="seg" id="dist" role="group" aria-label="Distribution"><button data-d="gaussian" class="on">Gaussian</button><button data-d="uniform">Uniform</button></div>
-        <label class="check"><input type="checkbox" id="guard"> Wait for this colour</label>
+        <select id="act" aria-label="Action" title="Mouse action to perform at the target position">
+          <option value="left" title="Standard left click">Left click</option>
+          <option value="right" title="Right click">Right click</option>
+          <option value="middle" title="Middle mouse click">Middle click</option>
+          <option value="double" title="Fast double left click">Double click</option>
+          <option value="hold" title="Press and hold the mouse button">Hold</option>
+          <option value="move" title="Move cursor only without clicking">Move only</option>
+        </select>
+        <div class="seg" id="dist" role="group" aria-label="Distribution">
+          <button data-d="gaussian" class="on" title="Gaussian Distribution: Clicks are weighted towards the centre of the shape">Gaussian</button>
+          <button data-d="uniform" title="Uniform Distribution: Clicks are distributed evenly throughout the shape">Uniform</button>
+        </div>
+        <div class="inline" style="display:inline-flex;gap:6px;align-items:center;background:var(--ink);border:1px solid var(--line2);border-radius:6px;padding:3px 8px" title="Delay in milliseconds after this step before the next step runs">
+          <label for="sdelay" style="font-size:12.5px;color:var(--fog);cursor:pointer">Delay:</label>
+          <input type="number" id="sdelay" value="600" min="0" step="50" style="width:72px;min-height:26px;padding:2px 6px;border:none;background:transparent;font-family:var(--m);font-size:12.5px" title="Delay after this step before the next step executes (ms)">
+          <span style="font-size:11.5px;color:var(--dim)">ms</span>
+        </div>
+        <label class="check" title="Pause until the expected pixel colour appears before acting"><input type="checkbox" id="guard"> Wait for colour</label>
       </div>
     </div>
     <div class="row">
-      <input type="text" id="sname" placeholder="Step name, optional" aria-label="Step name" style="flex:1 1 200px">
-      <div class="row"><button class="btn" id="test">Test hits</button><button class="btn" id="cancel">Cancel <kbd>Esc</kbd></button><button class="btn pri" id="save" disabled>Save step <kbd>↵</kbd></button></div>
+      <input type="text" id="sname" placeholder="Step name, optional" aria-label="Step name" title="Custom name or label for this step" style="flex:1 1 200px">
+      <div class="row">
+        <button class="btn" id="test" title="Simulate 30 random click points inside the drawn zone">Test hits</button>
+        <button class="btn" id="cancel" title="Discard this capture and return to app (Esc)">Cancel <kbd>Esc</kbd></button>
+        <button class="btn pri" id="save" disabled title="Save this step to the active sequence (Enter)">Save step <kbd>↵</kbd></button>
+      </div>
     </div>
   </div>
 </div>

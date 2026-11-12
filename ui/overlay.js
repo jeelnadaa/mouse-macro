@@ -216,11 +216,12 @@ function save() {
   const action = { left: { kind: 'click', button: 'left', count: 1 }, right: { kind: 'click', button: 'right', count: 1 }, middle: { kind: 'click', button: 'middle', count: 1 }, double: { kind: 'click', button: 'left', count: 2 }, hold: { kind: 'hold', button: 'left' }, move: { kind: 'move' } }[a];
   const label = $('#act').selectedOptions[0].textContent;
   const word = { rect: 'box', circle: 'circle', poly: 'polygon', point: 'point' }[shape.k];
+  const dVal = Math.max(0, parseFloat($('#sdelay')?.value) || 600);
   const step = {
     name: $('#sname').value.trim() || `${label} on ${word}`,
     action, zone: z,
     hold: a === 'hold' ? { min: 900, max: 1300 } : { min: 45, max: 80 },
-    delay: { dist: 'gaussian', mean: 600, spread: 80 }
+    delay: { dist, mean: dVal, spread: dist === 'fixed' ? 0 : Math.round(dVal * 0.15) }
   };
   let guardAt = null;
   if ($('#guard').checked) {
