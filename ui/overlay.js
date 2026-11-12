@@ -297,11 +297,20 @@ async function toggleZones() {
   if (ZONES) {
     await loadKeys();
     try { const g = await invoke('overlay_geom'); if (g?.k) G = g; } catch {}
-    T.event.emit('zones-request');
+    try {
+      const mac = await invoke('get_active_macro');
+      if (mac) ZONES_DATA = mac;
+    } catch (e) {
+      console.error('get_active_macro failed:', e);
+    }
     await refreshZonesWin();
     renderZones();
     const count = ZONES_DATA?.steps?.filter(s => s.enabled && s.zone)?.length || 0;
-    toast(`Zones guide: on (${count} ${count === 1 ? 'area' : 'areas'})`);
+    if (count === 0) {
+      toast(`No mapped zones in "${ZONES_DATA?.macro_name || 'active macro'}". Press F8 to capture steps.`);
+    } else {
+      toast(`Zones guide: on (${count} ${count === 1 ? 'area' : 'areas'})`);
+    }
   } else {
     toast('Zones guide: off');
   }
@@ -325,11 +334,11 @@ function renderZones() {
   const authored = ZONES_DATA.authored;
   const onResize = target.on_resize || 'scale';
 
-  const w = targetWin || { x: G.ox, y: G.oy, w: innerWidth * G.k, h: innerHeight * G.k, process: target.process || 'Whole screen' };
+  const w = targetWin || { x: G.ox, y: G.oy, w: (innerWidth || 1920) * (G.k || 1), h: (innerHeight || 1080) * (G.k || 1), process: target.process || 'Whole screen' };
   const [wx, wy] = toCss(w.x, w.y);
-  const ww = w.w / G.k, wh = w.h / G.k;
+  const ww = w.w / (G.k || 1), wh = w.h / (G.k || 1);
 
-  if (target.process) {
+  if (target.process && targetWin) {
     $('#z-winr').setAttribute('x', wx);
     $('#z-winr').setAttribute('y', wy);
     $('#z-winr').setAttribute('width', ww);
@@ -342,21 +351,22 @@ function renderZones() {
     $('#z-winl').textContent = '';
   }
 
-  const aw = authored?.w > 0 ? authored.w : w.w;
-  const ah = authored?.h > 0 ? authored.h : w.h;
+  const aw = (authored?.w > 0) ? authored.w : (w.w > 0 ? w.w : 1920);
+  const ah = (authored?.h > 0) ? authored.h : (w.h > 0 ? w.h : 1080);
 
   function mapPt(x, y) {
-    let px = x, py = y;
+    const nx = Number(x) || 0, ny = Number(y) || 0;
+    let px = nx, py = ny;
     if (onResize === 'center') {
-      px = x + (w.w - aw) / 2;
-      py = y + (w.h - ah) / 2;
+      px = nx + (w.w - aw) / 2;
+      py = ny + (w.h - ah) / 2;
     } else if (onResize === 'top_left') {
-      px = x;
-      py = y;
+      px = nx;
+      py = ny;
     } else {
       if (aw > 0 && ah > 0) {
-        px = (x * w.w) / aw;
-        py = (y * w.h) / ah;
+        px = (nx * w.w) / aw;
+        py = (ny * w.h) / ah;
       }
     }
     return toCss(w.x + px, w.y + py);
@@ -381,24 +391,24 @@ function renderZones() {
 
     if (shapeKind === 'rect') {
       const [x1, y1] = mapPt(z.x, z.y);
-      const scaleX = (w.w / aw) / G.k;
-      const scaleY = (w.h / ah) / G.k;
-      const sw = Math.max(4, z.w * scaleX);
-      const sh = Math.max(4, z.h * scaleY);
+      const scaleX = (w.w / aw) / (G.k || 1);
+      const scaleY = (w.h / ah) / (G.k || 1);
+      const sw = Math.max(6, (Number(z.w) || 20) * scaleX);
+      const sh = Math.max(6, (Number(z.h) || 20) * scaleY);
       center = [x1 + sw / 2, y1 + sh / 2];
       shapeSvg = `<g>
-        <rect x="${x1}" y="${y1}" width="${sw}" height="${sh}" rx="4" fill="${c}" fill-opacity="0.14" stroke="${c}" stroke-width="1.8" stroke-dasharray="6 4"/>
-        <rect x="${x1}" y="${y1}" width="${sw}" height="${sh}" rx="4" fill="none" stroke="${c}" stroke-width="0.8" opacity="0.3"/>
-        <circle cx="${center[0]}" cy="${center[1]}" r="2.2" fill="${c}" opacity="0.9"/>
+        <rect x="${x1}" y="${y1}" width="${sw}" height="${sh}" rx="4" fill="${c}" fill-opacity="0.18" stroke="${c}" stroke-width="2" stroke-dasharray="6 4"/>
+        <rect x="${x1}" y="${y1}" width="${sw}" height="${sh}" rx="4" fill="none" stroke="${c}" stroke-width="0.8" opacity="0.4"/>
+        <circle cx="${center[0]}" cy="${center[1]}" r="2.5" fill="${c}" opacity="0.95"/>
       </g>`;
     } else if (shapeKind === 'circle') {
       const [cx, cy] = mapPt(z.x, z.y);
-      const scale = (((w.w / aw) + (w.h / ah)) / 2) / G.k;
-      const sr = Math.max(3, z.r * scale);
+      const scale = (((w.w / aw) + (w.h / ah)) / 2) / (G.k || 1);
+      const sr = Math.max(4, (Number(z.r) || 15) * scale);
       center = [cx, cy];
       shapeSvg = `<g>
-        <circle cx="${cx}" cy="${cy}" r="${sr}" fill="${c}" fill-opacity="0.14" stroke="${c}" stroke-width="1.8" stroke-dasharray="6 4"/>
-        <circle cx="${cx}" cy="${cy}" r="2.5" fill="${c}" opacity="0.9"/>
+        <circle cx="${cx}" cy="${cy}" r="${sr}" fill="${c}" fill-opacity="0.18" stroke="${c}" stroke-width="2" stroke-dasharray="6 4"/>
+        <circle cx="${cx}" cy="${cy}" r="3" fill="${c}" opacity="0.95"/>
       </g>`;
     } else if (shapeKind === 'poly') {
       const pts = (z.points || []).map(p => mapPt(p[0], p[1]));
@@ -408,18 +418,18 @@ function renderZones() {
         center = [avgX, avgY];
         const ptsStr = pts.map(p => p.join(',')).join(' ');
         shapeSvg = `<g>
-          <polygon points="${ptsStr}" fill="${c}" fill-opacity="0.14" stroke="${c}" stroke-width="1.8" stroke-dasharray="6 4"/>
-          ${pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="${c}"/>`).join('')}
-          <circle cx="${center[0]}" cy="${center[1]}" r="2.5" fill="${c}" opacity="0.9"/>
+          <polygon points="${ptsStr}" fill="${c}" fill-opacity="0.18" stroke="${c}" stroke-width="2" stroke-dasharray="6 4"/>
+          ${pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="${c}"/>`).join('')}
+          <circle cx="${center[0]}" cy="${center[1]}" r="3" fill="${c}" opacity="0.95"/>
         </g>`;
       }
     } else {
       const [px, py] = mapPt(z.x, z.y);
       center = [px, py];
       shapeSvg = `<g>
-        <circle cx="${px}" cy="${py}" r="9" fill="none" stroke="${c}" stroke-width="1.2" stroke-dasharray="3 3"/>
-        <path d="M${px - 14} ${py}h28M${px} ${py - 14}v28" stroke="${c}" stroke-width="1.8"/>
-        <circle cx="${px}" cy="${py}" r="2.5" fill="var(--bone)"/>
+        <circle cx="${px}" cy="${py}" r="11" fill="rgba(217,119,87,0.2)" stroke="${c}" stroke-width="1.4" stroke-dasharray="3 3"/>
+        <path d="M${px - 16} ${py}h32M${px} ${py - 16}v32" stroke="${c}" stroke-width="2"/>
+        <circle cx="${px}" cy="${py}" r="3" fill="var(--bone)"/>
       </g>`;
     }
 
@@ -510,3 +520,4 @@ listen('ghost', ({ payload }) => {
 });
 loadKeys();
 invoke('overlay_geom').then(g => { if (g.k) G = g; }).catch(() => {});
+invoke('get_active_macro').then(mac => { if (mac) ZONES_DATA = mac; }).catch(() => {});

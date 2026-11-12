@@ -249,11 +249,49 @@ function renderAll() {
   if (!m) return;
   $('#pn').textContent = m.name;
   savedLabel();
+  renderMacroPickers();
   renderView();
 }
 function renderView() {
   ({ lib: renderLib, seq: renderSeq, ins: renderIns, rec: renderRec, log: renderLog, set: renderSet, key: renderKeys, app: renderApp }[view] || (() => {}))();
 }
+
+function renderMacroPickers() {
+  const opts = DB.macros.map(m => `<option value="${m.id}" ${m.id === DB.active ? 'selected' : ''}>${esc(m.name)} (${m.steps.length} ${m.steps.length === 1 ? 'step' : 'steps'})</option>`).join('');
+  const sideSel = $('#side-macro-sel');
+  if (sideSel) sideSel.innerHTML = opts;
+  const seqSel = $('#seq-macro-sel');
+  if (seqSel) seqSel.innerHTML = opts;
+}
+
+$('#side-macro-sel')?.addEventListener('change', e => {
+  openMacro(e.target.value);
+  go('seq');
+});
+$('#seq-macro-sel')?.addEventListener('change', e => {
+  openMacro(e.target.value);
+  go('seq');
+});
+function createNewMacro() {
+  mut(() => {
+    const m = newMacro(untitled());
+    DB.macros.push(m);
+    DB.active = m.id;
+    sel = -1;
+    ins = -1;
+  });
+  syncTarget();
+  go('seq');
+  const t = $('#mt');
+  if (t) {
+    t.focus();
+    getSelection().selectAllChildren(t);
+  }
+  toast(`Created ${cur().name}`);
+}
+$('#newm').onclick = createNewMacro;
+$('#side-newm').onclick = createNewMacro;
+$('#seq-newm').onclick = createNewMacro;
 
 /* ---------------------------------------------------------------- library */
 function renderLib() {
@@ -264,40 +302,52 @@ function renderLib() {
   $('#mlist').innerHTML = L.length ? L.map((m, i) => {
     const on = m.steps.filter(s => s.enabled), tot = on.reduce((a, s) => a + est(s), 0);
     const running = RUN.state !== 'idle' && RUN.macro_id === m.id;
-    return `<li class="${m.id === DB.active ? 'cur' : ''}" style="--i:${i}" title="${esc(m.name)}: ${pl(m.steps.length, 'step')}. Click to open.">
-      <div class="st"><b>${esc(m.name)}</b><span>${esc(m.target.process || 'Whole screen')}, ${pl(m.steps.length, 'step')}. ${running ? 'Running now' : ago(m.last_run)}${m.file ? '. ' + esc(baseOf(m.file)) : ''}</span></div>
+    const isCur = m.id === DB.active;
+    return `<li class="${isCur ? 'cur active-macro' : ''}" style="--i:${i}" title="${esc(m.name)}: ${pl(m.steps.length, 'step')}. Click to select.">
+      <div class="st">
+        <b>${isCur ? '<span class="active-pill">ACTIVE</span>' : ''}${esc(m.name)}</b>
+        <span>${esc(m.target.process || 'Whole screen')}, ${pl(m.steps.length, 'step')}. ${running ? 'Running now' : ago(m.last_run)}${m.file ? '. ' + esc(baseOf(m.file)) : ''}</span>
+      </div>
       <div class="mini" aria-hidden="true">${on.map(s => `<i style="flex:${est(s)};background:${colorOf(s)}" title="${esc(s.name)} (${round(s.delay.mean)}ms delay)"></i>`).join('') || '<i style="flex:1;background:var(--deep)"></i>'}</div>
       <span class="m time" title="Estimated pass time">${tot ? fmt(tot) : 'Empty'}</span>
-      <div class="row" style="flex-wrap:nowrap;gap:6px"><button class="btn sm" data-a="open" data-id="${m.id}" title="Open this macro in editor">${m.id === DB.active ? 'Open now' : 'Open'}</button>
-      <div class="rowact"><button data-a="dup" data-id="${m.id}" title="Duplicate this macro">Duplicate</button><button data-a="export" data-id="${m.id}" title="Export macro to a JSON file">Save as</button><button class="del" data-a="del" data-id="${m.id}" title="Delete this macro permanently">Delete</button></div></div></li>`;
+      <div class="row" style="flex-wrap:nowrap;gap:6px">
+        ${isCur
+          ? `<span class="active-badge-tag" title="Currently selected active macro">● In use</span><button class="btn sm" data-a="open" data-id="${m.id}" title="View and edit sequence">View Sequence</button>`
+          : `<button class="btn pri sm" data-a="open" data-id="${m.id}" title="Select this macro and open it">Select & Use</button>`}
+        <div class="rowact">
+          <button data-a="dup" data-id="${m.id}" title="Duplicate this macro">Duplicate</button>
+          <button data-a="export" data-id="${m.id}" title="Export macro to a JSON file">Save as</button>
+          <button class="del" data-a="del" data-id="${m.id}" title="Delete this macro permanently">Delete</button>
+        </div>
+      </div>
+    </li>`;
   }).join('') : `<li class="empty"><span>No macros match that search.</span></li>`;
 }
 $('#q').oninput = renderLib;
 $('#mlist').onclick = e => {
   const b = e.target.closest('button[data-a]');
-  if (!b) return;
-  const id = b.dataset.id, a = b.dataset.a, m = DB.macros.find(x => x.id === id);
-  if (!m) return;
-  if (a === 'open') { openMacro(id); go('seq'); }
-  if (a === 'dup') mut(() => { const c = clone(m); c.id = uid('m'); c.name = m.name + ' copy'; c.last_run = null; c.file = ''; c.created = Date.now(); c.steps.forEach(s => s.id = uid('s')); DB.macros.splice(DB.macros.indexOf(m) + 1, 0, c); }, 'Macro duplicated');
-  if (a === 'export') saveAs(m);
-  if (a === 'del') {
-    if (DB.macros.length < 2) return toast('Keep at least one macro');
-    if (RUN.state !== 'idle' && RUN.macro_id === id) return toast('Stop this macro before deleting it');
-    mut(() => { DB.macros = DB.macros.filter(x => x.id !== id); if (DB.active === id) { DB.active = DB.macros[0].id; syncTarget(); } }, 'Macro deleted, Ctrl+Z to undo');
+  if (b) {
+    const id = b.dataset.id, a = b.dataset.a, m = DB.macros.find(x => x.id === id);
+    if (!m) return;
+    if (a === 'open') { openMacro(id); go('seq'); }
+    if (a === 'dup') mut(() => { const c = clone(m); c.id = uid('m'); c.name = m.name + ' copy'; c.last_run = null; c.file = ''; c.created = Date.now(); c.steps.forEach(s => s.id = uid('s')); DB.macros.splice(DB.macros.indexOf(m) + 1, 0, c); }, 'Macro duplicated');
+    if (a === 'export') saveAs(m);
+    if (a === 'del') {
+      if (DB.macros.length < 2) return toast('Keep at least one macro');
+      if (RUN.state !== 'idle' && RUN.macro_id === id) return toast('Stop this macro before deleting it');
+      mut(() => { DB.macros = DB.macros.filter(x => x.id !== id); if (DB.active === id) { DB.active = DB.macros[0].id; syncTarget(); } }, 'Macro deleted, Ctrl+Z to undo');
+    }
+    return;
   }
+  const li = e.target.closest('li');
+  const openBtn = li?.querySelector('button[data-a="open"]');
+  if (openBtn?.dataset.id) { openMacro(openBtn.dataset.id); go('seq'); }
 };
 function openMacro(id) {
   if (DB.active === id) return;
   DB.active = id; sel = -1; ins = -1; firstSeq = true;
   persist(); syncTarget(); renderAll();
 }
-$('#newm').onclick = () => {
-  mut(() => { const m = newMacro(untitled()); DB.macros.push(m); DB.active = m.id; sel = -1; ins = -1; });
-  syncTarget();
-  go('seq');
-  const t = $('#mt'); t.focus(); getSelection().selectAllChildren(t);
-};
 async function exportJson(name, data) {
   try { const p = await invoke('save_file_as', { name, content: JSON.stringify(data, null, 2), dir: PREFS.save_dir || DEFAULT_DIR }); if (p) toast('Saved to ' + p); }
   catch (e) { toast('Could not save: ' + e); }
@@ -357,6 +407,7 @@ function renderSeq() {
     : `<button class="btn" data-act="save" title="${m.file ? 'Save changes to ' + esc(m.file) : 'Save macro to a file (Ctrl+S)'}">Save <kbd>Ctrl+S</kbd></button><button class="btn" data-act="saveas" title="Save a copy of this macro with a new name">Save as</button><button class="btn" data-act="capture" title="Open overlay over target app to draw a zone and add a step (${k('capture')})">Capture step <kbd>${k('capture')}</kbd></button><button class="btn" data-act="guide" title="Toggle full-screen click-through manual guide showing all mapped click zones (${k('zones')})">Zones guide <kbd>${k('zones')}</kbd></button><button class="btn" data-act="dry" title="Simulate this sequence without sending physical clicks">Dry run</button><button class="btn" data-act="stepmode" title="Step through sequence with manual advance (${k('step')})">Step through <kbd>${k('step')}</kbd></button><button class="btn pri" data-act="run" ${other ? 'disabled title="Another macro is running"' : 'title="Run active macro on target window (' + k('start') + ')"'}>Run <kbd>${k('start')}</kbd></button>`;
   renderRunbar();
   renderFacts(m);
+  renderSeqMap(m);
   const pass = $('#pass');
   if (on.length) {
     pass.className = 'pass' + (here ? '' : ' idle');
@@ -383,6 +434,167 @@ function renderSeq() {
     : `<li class="empty"><span>No steps yet. Press ${k('capture')} over the app to capture the first one, or ${k('quick')} to drop a click where the pointer is.</span><button class="btn pri" data-act="capture">Capture step</button></li>`;
   markRunning();
 }
+
+let seqViewMode = 'both';
+
+function renderSeqMap(m) {
+  const box = $('#seq-map-box');
+  const led = $('#ledger');
+  if (!box) return;
+
+  box.hidden = seqViewMode === 'list';
+  if (led) led.hidden = seqViewMode === 'map';
+  if (seqViewMode === 'list') return;
+
+  const steps = m.steps || [];
+  const enabledSteps = steps.filter(s => s.enabled && s.zone);
+  const target = m.target || {};
+  const authored = m.authored;
+
+  $('#seq-map-count').textContent = `${enabledSteps.length} ${enabledSteps.length === 1 ? 'area' : 'areas'}`;
+  
+  const w = winCache.key === target.process && winCache.info ? winCache.info : null;
+  const aw = (authored?.w > 0) ? authored.w : (w ? w.w : 1920);
+  const ah = (authored?.h > 0) ? authored.h : (w ? w.h : 1080);
+  
+  $('#seq-map-res').textContent = target.process
+    ? `${target.process} · ${aw}×${ah}${w ? ` (${w.w}×${w.h} active)` : ''}`
+    : `Primary display · ${aw}×${ah}`;
+
+  const emptyMsg = $('#sm-empty');
+  if (!enabledSteps.length) {
+    if (emptyMsg) emptyMsg.style.display = 'block';
+    $('#sm-shapes').innerHTML = '';
+    $('#sm-paths').innerHTML = '';
+    $('#sm-labels').innerHTML = '';
+    $('#sm-winrect').setAttribute('width', '0');
+    $('#sm-winlabel').textContent = '';
+    return;
+  }
+  if (emptyMsg) emptyMsg.style.display = 'none';
+
+  const pad = 28;
+  const vw = 960 - pad * 2, vh = 540 - pad * 2;
+  const scaleX = vw / aw, scaleY = vh / ah;
+
+  const toMapX = x => Math.round(pad + (Number(x) || 0) * scaleX);
+  const toMapY = y => Math.round(pad + (Number(y) || 0) * scaleY);
+
+  $('#sm-winrect').setAttribute('x', pad);
+  $('#sm-winrect').setAttribute('y', pad);
+  $('#sm-winrect').setAttribute('width', vw);
+  $('#sm-winrect').setAttribute('height', vh);
+  $('#sm-winlabel').setAttribute('x', pad + 10);
+  $('#sm-winlabel').setAttribute('y', pad + 18);
+  $('#sm-winlabel').textContent = `${target.process || 'Screen'} (${aw}×${ah})`;
+
+  let shapesHtml = '';
+  let pathsHtml = '';
+  let labelsHtml = '';
+  const centers = [];
+
+  enabledSteps.forEach((s, idx) => {
+    const z = s.zone || {};
+    const shapeKind = z.shape || 'point';
+    const c = COLOR[shapeKind] || 'var(--brass)';
+    const stepNum = idx + 1;
+    const realIdx = steps.indexOf(s);
+
+    let center = [0, 0];
+    let shapeSvg = '';
+
+    if (shapeKind === 'rect') {
+      const rx = toMapX(z.x);
+      const ry = toMapY(z.y);
+      const rw = Math.max(8, (Number(z.w) || 20) * scaleX);
+      const rh = Math.max(8, (Number(z.h) || 20) * scaleY);
+      center = [rx + rw / 2, ry + rh / 2];
+      shapeSvg = `<g class="map-zone" data-step-idx="${realIdx}" title="Step ${stepNum}: ${esc(s.name)} (Click to inspect)">
+        <rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" rx="4" fill="${c}" fill-opacity="0.22" stroke="${c}" stroke-width="1.8" stroke-dasharray="6 4"/>
+        <rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" rx="4" fill="none" stroke="${c}" stroke-width="0.8" opacity="0.4"/>
+        <circle cx="${center[0]}" cy="${center[1]}" r="2.5" fill="${c}" opacity="0.9"/>
+      </g>`;
+    } else if (shapeKind === 'circle') {
+      const cx = toMapX(z.x);
+      const cy = toMapY(z.y);
+      const scale = (scaleX + scaleY) / 2;
+      const cr = Math.max(6, (Number(z.r) || 15) * scale);
+      center = [cx, cy];
+      shapeSvg = `<g class="map-zone" data-step-idx="${realIdx}" title="Step ${stepNum}: ${esc(s.name)} (Click to inspect)">
+        <circle cx="${cx}" cy="${cy}" r="${cr}" fill="${c}" fill-opacity="0.22" stroke="${c}" stroke-width="1.8" stroke-dasharray="6 4"/>
+        <circle cx="${cx}" cy="${cy}" r="3" fill="${c}" opacity="0.95"/>
+      </g>`;
+    } else if (shapeKind === 'poly') {
+      const pts = (z.points || []).map(p => [toMapX(p[0]), toMapY(p[1])]);
+      if (pts.length) {
+        const avgX = pts.reduce((a, p) => a + p[0], 0) / pts.length;
+        const avgY = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+        center = [avgX, avgY];
+        const ptsStr = pts.map(p => p.join(',')).join(' ');
+        shapeSvg = `<g class="map-zone" data-step-idx="${realIdx}" title="Step ${stepNum}: ${esc(s.name)} (Click to inspect)">
+          <polygon points="${ptsStr}" fill="${c}" fill-opacity="0.22" stroke="${c}" stroke-width="1.8" stroke-dasharray="6 4"/>
+          ${pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="${c}"/>`).join('')}
+          <circle cx="${center[0]}" cy="${center[1]}" r="3" fill="${c}" opacity="0.95"/>
+        </g>`;
+      }
+    } else {
+      const px = toMapX(z.x);
+      const py = toMapY(z.y);
+      center = [px, py];
+      shapeSvg = `<g class="map-zone" data-step-idx="${realIdx}" title="Step ${stepNum}: ${esc(s.name)} (Click to inspect)">
+        <circle cx="${px}" cy="${py}" r="11" fill="rgba(217,119,87,0.2)" stroke="${c}" stroke-width="1.4" stroke-dasharray="3 3"/>
+        <path d="M${px - 14} ${py}h28M${px} ${py - 14}v28" stroke="${c}" stroke-width="1.8"/>
+        <circle cx="${px}" cy="${py}" r="2.8" fill="var(--bone)"/>
+      </g>`;
+    }
+
+    shapesHtml += shapeSvg;
+    centers.push(center);
+
+    const bx = Math.round(center[0] + 12);
+    const by = Math.round(center[1] - 22);
+    const nameText = esc(s.name || `Step ${stepNum}`);
+    const approxW = Math.max(80, Math.min(180, (nameText.length * 7) + 32));
+
+    labelsHtml += `<g class="z-badge map-zone" data-step-idx="${realIdx}" transform="translate(${bx}, ${by})">
+      <rect x="0" y="0" width="${approxW}" height="22" rx="5" fill="#0e0d0ce8" stroke="var(--line2)" stroke-width="1"/>
+      <circle cx="11" cy="11" r="7" fill="${c}"/>
+      <text x="11" y="11" fill="#0e0d0c" font-size="9.5" font-weight="700" text-anchor="middle" dominant-baseline="central">${stepNum}</text>
+      <text x="23" y="14" fill="var(--bone)" font-size="10.5" font-weight="500">${nameText.slice(0, 16)}</text>
+    </g>`;
+  });
+
+  for (let i = 0; i < centers.length - 1; i++) {
+    const p1 = centers[i], p2 = centers[i + 1];
+    pathsHtml += `<line x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}" stroke="var(--dim)" stroke-opacity="0.45" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#seq-arrow)"/>`;
+  }
+
+  $('#sm-shapes').innerHTML = shapesHtml;
+  $('#sm-paths').innerHTML = pathsHtml;
+  $('#sm-labels').innerHTML = labelsHtml;
+}
+
+$('#seq-view-seg')?.addEventListener('click', e => {
+  const b = e.target.closest('button[data-m]');
+  if (b) {
+    seqViewMode = b.dataset.m;
+    $$('#seq-view-seg button').forEach(x => x.classList.toggle('on', x === b));
+    renderSeqMap(cur());
+  }
+});
+$('#btn-open-guide')?.addEventListener('click', () => {
+  syncZones();
+  T.event.emit('overlay-toggle-req', 'zones');
+});
+$('#seq-map-svg')?.addEventListener('click', e => {
+  const g = e.target.closest('[data-step-idx]');
+  if (g) {
+    const idx = +g.dataset.stepIdx;
+    sel = idx;
+    ins = idx;
+    go('ins');
+  }
+});
 function renderRunbar() {
   const rb = $('#runbar');
   if (!isRunningHere()) { rb.hidden = true; return; }
@@ -431,10 +643,10 @@ async function refreshWin() {
   catch { winCache = { key: m.target.process, info: null, at: Date.now() }; }
   if (view === 'seq') renderFacts(m);
 }
-function syncZones() {
+async function syncZones() {
   const m = cur();
   if (!m) return;
-  T.event.emit('zones-data', {
+  const data = {
     macro_id: m.id,
     macro_name: m.name,
     target: m.target,
@@ -448,19 +660,26 @@ function syncZones() {
       zone: s.zone,
       delay: s.delay
     }))
-  });
+  };
+  try {
+    await invoke('set_active_macro', { mac: data });
+  } catch (e) {
+    console.error('set_active_macro failed:', e);
+  }
 }
 function syncTarget() {
   const m = cur(); if (!m) return;
   invoke('set_active_target', { process: m.target.process || '', title: m.target.title || '' }).catch(() => {});
   refreshWin();
   syncZones();
+  renderMacroPickers();
 }
 
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]');
   if (!b || b.disabled) return;
   const a = b.dataset.act;
+  if (a === 'new') createNewMacro();
   if (a === 'guide') { syncZones(); T.event.emit('overlay-toggle-req', 'zones'); }
   if (a === 'run') runMacro();
   if (a === 'dry') runMacro({ dry: true });
@@ -1304,6 +1523,7 @@ addEventListener('keydown', e => {
   if ($('#scrim').classList.contains('on')) { if (e.key === 'Escape') closeDlg(); return; }
   if ((e.ctrlKey || e.metaKey) && !typing) {
     const k = e.key.toLowerCase();
+    if (k === 'n') { e.preventDefault(); createNewMacro(); return; }
     if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
     if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redoIt(); }
     if (k === 'd' && view === 'seq' && sel >= 0) { e.preventDefault(); stepAction('dup', sel); }

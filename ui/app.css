@@ -196,6 +196,27 @@ tr.listen kbd{animation:b 1s infinite;border-color:var(--brass);color:var(--bras
 .trace{width:100%;display:block}
 .empty-note{color:var(--fog);padding:26px 0}
 
+/* active macro & map styles */
+.side-macro-box{padding:10px 14px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:7px}
+.side-macro-header{display:flex;justify-content:space-between;align-items:center}
+.side-macro-tag{font-size:10px;font-family:var(--m);font-weight:700;letter-spacing:.08em;color:var(--brass)}
+.side-new-btn{font-size:11.5px;padding:3px 9px;border-radius:5px;background:var(--brass);color:var(--on-brass);font-weight:600;display:inline-flex;align-items:center;gap:4px;transition:background .2s}
+.side-new-btn:hover{background:var(--brass-hi)}
+.side-macro-select{width:100%;background:var(--ink);border:1px solid var(--line2);border-radius:6px;padding:6px 8px;color:var(--bone);font-size:12.5px;font-weight:500;text-overflow:ellipsis}
+.side-macro-select:focus{border-color:var(--brass);outline:none}
+
+.active-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;background:rgba(217,119,87,.14);color:var(--brass);border:1px solid rgba(217,119,87,.35);font-size:11px;font-family:var(--m);font-weight:600;letter-spacing:.05em}
+.active-pill{display:inline-block;padding:1px 6px;border-radius:3px;background:var(--brass);color:var(--on-brass);font-size:10px;font-family:var(--m);font-weight:700;margin-right:6px;letter-spacing:.06em}
+.active-badge-tag{font-size:11.5px;color:var(--brass);font-family:var(--m);padding:4px 8px}
+.macro-select-subtle{background:var(--slate);border:1px solid var(--line2);border-radius:6px;padding:4px 8px;font-size:12.5px;color:var(--bone);max-width:240px}
+li.cur.active-macro{border-color:rgba(217,119,87,.45);background:rgba(217,119,87,.04)}
+
+.seq-map-panel{margin-top:14px;padding:16px;background:var(--slate);border:1px solid var(--line2);border-radius:10px}
+.seq-map-wrap{position:relative;width:100%;aspect-ratio:16/9;max-height:420px;background:#060605;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seq-map-wrap svg{width:100%;height:100%;display:block}
+.map-zone{cursor:pointer;transition:transform .2s,fill-opacity .2s}
+.map-zone:hover{fill-opacity:.35}
+
 @media(max-width:860px){
   body{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
   aside{height:auto;flex-direction:row;overflow-x:auto;padding:10px 12px;gap:12px;align-items:center;border-right:0;border-bottom:1px solid var(--line)}

@@ -35,6 +35,7 @@ struct AppState {
     stop_keys: Mutex<Vec<Shortcut>>,
     stop_bindings: Mutex<Vec<String>>,
     target: Mutex<(String, String)>,
+    active_macro: Mutex<Option<Value>>,
     capture_win: Mutex<Option<WinInfo>>,
     geom: Mutex<Geom>,
     recording: Arc<AtomicBool>,
@@ -485,6 +486,17 @@ fn set_active_target(state: State<AppState>, process: String, title: String) {
 }
 
 #[tauri::command]
+fn set_active_macro(app: AppHandle, state: State<AppState>, mac: Value) {
+    *state.active_macro.lock().unwrap() = Some(mac.clone());
+    let _ = app.emit_to("overlay", "zones-data", mac);
+}
+
+#[tauri::command]
+fn get_active_macro(state: State<AppState>) -> Option<Value> {
+    state.active_macro.lock().unwrap().clone()
+}
+
+#[tauri::command]
 fn list_windows() -> Vec<WinInfo> {
     platform::list_windows()
 }
@@ -697,6 +709,8 @@ pub fn run() {
             run_step,
             run_status,
             set_active_target,
+            set_active_macro,
+            get_active_macro,
             list_windows,
             target_info,
             begin_capture,

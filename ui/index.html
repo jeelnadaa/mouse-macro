@@ -10,6 +10,13 @@
 <body>
 <aside>
   <div class="brand"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="color:var(--brass)" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><path d="M12 1v7M12 16v7M1 12h7M16 12h7"/></svg><span style="color:inherit;font-weight:inherit">Aether<span style="margin-left:.18em">macro</span></span></div>
+  <div class="side-macro-box">
+    <div class="side-macro-header">
+      <span class="side-macro-tag">ACTIVE MACRO</span>
+      <button class="side-new-btn" id="side-newm" title="Create a new macro (Ctrl+N)">+ New</button>
+    </div>
+    <select id="side-macro-sel" class="side-macro-select" title="Switch active macro"></select>
+  </div>
   <nav id="nav" aria-label="Sections">
     <i class="ind"></i>
     <button data-v="lib" title="View, manage, import and export all saved macros">Library</button>
@@ -36,11 +43,70 @@
 </section>
 
 <section class="view" id="v-seq">
-  <div class="top"><div><h1 id="mt" contenteditable="plaintext-only" spellcheck="false" title="Click to rename this macro" aria-label="Macro name"></h1><p class="lede" id="ml"></p></div>
-    <div class="row" id="seqactions"></div></div>
+  <div class="top">
+    <div style="flex:1 1 340px;min-width:0">
+      <div class="row start" style="gap:8px;margin-bottom:6px">
+        <span class="active-badge" title="Active macro">● ACTIVE</span>
+        <select id="seq-macro-sel" class="macro-select-subtle" title="Switch between saved macros"></select>
+        <button class="btn sm" id="seq-newm" title="Create a new macro (Ctrl+N)">+ New macro</button>
+      </div>
+      <h1 id="mt" contenteditable="plaintext-only" spellcheck="false" title="Click to rename this macro" aria-label="Macro name"></h1>
+      <p class="lede" id="ml"></p>
+    </div>
+    <div class="row" id="seqactions"></div>
+  </div>
   <div class="runbar" id="runbar" hidden></div>
   <div class="facts" id="facts"></div>
-  <h2>One pass</h2><div class="pass" id="pass" title="Pass timeline: hover a segment to see step duration and delay"></div>
+
+  <div class="seq-subbar">
+    <div class="row" style="margin:18px 0 10px;justify-content:space-between;align-items:baseline">
+      <h2>One pass</h2>
+      <div class="seg" id="seq-view-seg" role="group" aria-label="Display mode">
+        <button data-m="both" class="on" title="Show both step list and visual mapped areas canvas">List & Map</button>
+        <button data-m="list" title="Show sequence step list only">List only</button>
+        <button data-m="map" title="Show visual mapped areas canvas only">Map only</button>
+      </div>
+    </div>
+  </div>
+  <div class="pass" id="pass" title="Pass timeline: hover a segment to see step duration and delay"></div>
+
+  <!-- Interactive Mapped Areas Visual Canvas -->
+  <div id="seq-map-box" class="panel seq-map-panel">
+    <div class="row" style="margin-bottom:12px;justify-content:space-between">
+      <div class="row start" style="gap:10px">
+        <b>Mapped Areas Canvas</b>
+        <span class="badge" id="seq-map-count">0 areas</span>
+        <span class="m sub" id="seq-map-res" style="color:var(--dim);font-size:12px"></span>
+      </div>
+      <div class="row" style="gap:8px">
+        <span class="sub" style="font-size:12px">Click any zone to inspect · <kbd>F4</kbd> shows in-game</span>
+        <button class="btn sm" id="btn-open-guide" title="Toggle the click-through in-game guide overlay (F4)">In-game overlay <kbd>F4</kbd></button>
+      </div>
+    </div>
+    <div class="seq-map-wrap">
+      <svg id="seq-map-svg" viewBox="0 0 960 540" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <pattern id="mapgrid" width="30" height="30" patternUnits="userSpaceOnUse">
+            <path d="M 30 0 L 0 0 0 30" fill="none" stroke="var(--line)" stroke-width="0.8"/>
+          </pattern>
+          <marker id="seq-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="var(--brass)" opacity="0.85"/>
+          </marker>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#mapgrid)" rx="8"/>
+        <rect id="sm-winrect" fill="none" stroke="var(--line2)" stroke-width="1.2" stroke-dasharray="6 4" rx="8"/>
+        <text id="sm-winlabel" fill="var(--dim)" font-size="11" font-family="var(--m)" x="14" y="24"></text>
+        <g id="sm-paths"></g>
+        <g id="sm-shapes"></g>
+        <g id="sm-labels"></g>
+        <g id="sm-empty" style="display:none">
+          <text x="480" y="260" text-anchor="middle" fill="var(--fog)" font-size="14" font-weight="500">No mapped areas in this macro yet.</text>
+          <text x="480" y="284" text-anchor="middle" fill="var(--dim)" font-size="12">Press F8 over your game or window to capture steps.</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+
   <ol class="ledger rail" id="ledger"></ol>
 </section>
 
