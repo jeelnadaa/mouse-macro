@@ -68,18 +68,23 @@ Reuse these before inventing anything new.
 3. **Zone thumbnail.** A 58×34 mini drawing of the zone shape in its color, with 13% fill and a 1.5px stroke.
 4. **Registration crosshair.** The brand mark and point-zone marker.
 5. **Distribution preview.** Brass curve, 15% brass fill between clamp lines, dashed clamp markers. Any new numeric range should preview itself the same way.
+6. **Mapped areas 2D canvas.** A 16:9 surveyor spatial projection (`#seq-map-box`) showing the target window boundary, all mapped zone geometries in their shape colors (`--rect`, `--circ`, `--poly`, `--brass`), step index badges, and directional flow vectors.
+7. **Zones guide overlay.** A glass guide overlay (`F4`) floating click-through above the game window, projecting mapped zones and targets in real time for manual play and timing assistance.
 
 ## 6. Components
 
 - **Primary button:** coral fill, dark text, 7px radius, weight 600, with its hotkey in a `kbd`. One primary per view area.
 - **Secondary button:** transparent, `--line2` border, 7px radius. Hover fills `--deep`. Destructive variant uses `--mad` text and border.
 - **Key cap (`kbd`):** mono 11px, 2px bottom border, `--slate` fill.
-- **Segmented control:** `--ink` track, selected option `--raise` with a `--line2` ring.
+- **Segmented control:** `--ink` track, selected option `--raise` with a `--line2` ring. Used for layout modes (*Overview & Map*, *List only*, *Map only*).
 - **Select, text input:** `--ink` fill, `--line2` border, 6px radius. Range inputs use brass accent.
+- **Active macro switcher:** persistent `<select>` in `--ink` with `--line2` border, placed in both the sidebar (`#side-macro-sel`) and the Sequence header (`#seq-macro-sel`), accompanied by an emerald `● ACTIVE` status badge and a quick `+ New Macro` trigger (`#side-newm`, `#seq-newm`, `Ctrl+N`).
 - **Sidebar nav:** text only, sentence case. The selection marker is one element that slides between items with a brass left edge.
 - **Dialog:** `--slate`, 12px radius. Emergency uses a `--mad` border with a soft 4px ring. Advisory uses brass. Structure: short title (states what happened), one calm sentence, a telemetry list, then actions with the primary on the right.
-- **Macro ledger:** same hairline-ledger pattern as steps. Columns: name with a fog sub-line (target, step count, last run), mini pass bar (8px high, 2px radius segments in zone colors), total time in mono, actions. Open is a secondary button; Duplicate and Delete appear on hover or focus.
+- **Macro ledger:** same hairline-ledger pattern as steps. Columns: name with a fog sub-line (target, step count, last run), active pill, mini pass bar (8px high, 2px radius segments in zone colors), total time in mono, actions. Open is a secondary button; "Select & Use" is a primary button; Duplicate and Delete appear on hover or focus.
 - **Inline title:** the page title is editable in place. Hover shows a hairline underline, focus shows the brass ring, Enter commits, an empty value reverts.
+- **Timing & delay controls:** granular numeric inputs in JetBrains Mono with mean duration (`ms`) and spread jitter (`ms`), accompanied by distribution previews and contextual tooltips.
+- **Tooltips:** unobtrusive micro-tooltips with keyboard shortcuts and plain-language action descriptions on all interactive buttons and state chips.
 - **Sidebar macro button:** shows the open macro name and step count and opens the Library.
 - **Toast:** ivory fill, ink text, 8px radius, centered at the bottom, 1.8s.
 - **Tables:** hairline rows, no zebra, conflicts shown in brass text beside the row.
@@ -107,11 +112,12 @@ Each screen maps to a section of `PLAN.md`.
 
 | Screen | Plan section | Notes |
 | :--- | :--- | :--- |
-| Library | 11 | Macro ledger: name and target, mini pass bar, total time, Open. Hover reveals Duplicate and Delete. Search and New macro at the top right. The open macro has a brass edge. |
-| Sequence | 4.4, 7 | Title (click to rename), fact row, pass bar, ledger. Hover reveals Edit, Duplicate, Delete. The sidebar macro button opens the Library. |
+| Library | 11 | Macro ledger: name and target, active pill, mini pass bar, total time, "Select & Use", Open. Hover reveals Duplicate and Delete. Search, import, export, and New macro at the top right. The open macro has a brass edge. |
+| Sequence | 4.4, 7 | Title (click to rename), active macro switcher with `● ACTIVE` badge, quick New Macro button, fact row, pass bar, 2D Mapped Areas visual canvas (`#seq-map-box`) with 3-way layout switcher (*Overview & Map*, *List only*, *Map only*), and ledger. Hover reveals Edit, Duplicate, Delete. |
+| Zones guide overlay | 4.1, 9 | Topmost click-through in-game guide overlay (<kbd>F4</kbd>). Projects mapped hitboxes, step order numbers, and action tags over the active window in real time for manual play and timing assistance. |
 | Capture overlay | 4.1, 5 | Frozen scene, dim and blur, draw on canvas, floating palette. |
 | Heads-up display | 9 | Telemetry HUD top-left, status pill bottom-center. Both click-through. |
-| Step inspector | 6 | Form on the left, live distribution on the right. |
+| Step inspector | 6 | Form on the left with precise timing and delay controls, live distribution on the right. |
 | Recorder | 4.2 | Trace with kept and trimmed segments, trim and smooth sliders. |
 | Safety | 8, 7 | Emergency dialog and robotic-pattern advisory with one-click fix. |
 | Hotkeys | 10 | Press-to-rebind table, conflict flags, chime previews. |
@@ -153,4 +159,5 @@ When a screen or component is needed that the HTML does not show (run log, dry-r
 - Every change autosaves. There is no Save button for macros. Toasts say what happened in plain words ("Step 6 added to Smithing loop", "Macro deleted, Ctrl+Z to undo").
 - Every destructive action is undoable with `Ctrl+Z` and says so in its toast. Do not use confirm dialogs for deletes.
 - Always keep at least one macro. New macros start empty with an empty-state row on the Sequence screen.
-- The open macro is always visible: sidebar button, page title, and brass edge in the Library.
+- The open macro is always visible: sidebar switcher, sequence header selector, page title, and brass edge + active pill in the Library.
+- Multi-window synchronization: the active macro is tracked synchronously in the Rust backend (`AppState.active_macro`). When the active macro is changed via any selector or shortcut (<kbd>Ctrl+N</kbd>), both the main window and all active overlays receive immediate, zero-latency state updates.
